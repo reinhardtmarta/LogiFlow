@@ -2,3 +2,4 @@ pandas
 numpy
 ipywidgets
 ipython
+llama-cpp-python
