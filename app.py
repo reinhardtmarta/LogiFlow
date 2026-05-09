@@ -1,171 +1,146 @@
 import streamlit as st
 import pandas as pd
 import datetime
-import random
-import requests
+import requests  # Para fazer a chamada à API de busca
 import json
 
 # ==============================================================================
-# 1. DATA ENGINE (Simulando o Mundo Real e o Banco Local)
+# 1. CONFIGURAÇÃO E API (O Céreção da Inteligência)
 # ==============================================================================
+
+# NOTA: No Streamlit Cloud, use st.secrets["TAVILY_API_KEY"]
+# Para teste local, você pode colocar a chave aqui:
+TAVILY_API_KEY = "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" 
 
 class LogiflowEngine:
     def __init__(self):
-        # Simulando o Banco de Dados Local (Vendedores cadastrados)
+        # Mantemos o inventário local para o "Lado do Vendedor"
         if 'local_inventory' not in st.session_state:
             st.session_state.local_inventory = pd.DataFrame(columns=[
                 'product', 'store', 'price', 'location', 'is_producer', 'expiry'
             ])
-        
-        # Simulando o "Mundo Global" (Dados que o Agente busca na Web/Google)
-        self.global_mock_data = [
-            {"product": "Organic Milk", "price": 4.50, "source": "Amazon", "location": "Global Warehouse"},
-            {"product": "Fresh Avocado", "price": 2.00, "source": "Walmart", "location": "Global Warehouse"},
-            {"product": "Greek Yogurt", "price": 3.50, "source": "Target", "location": "Global Warehouse"},
-            {"product": "Sourdough Bread", "price": 5.00, "source": "Local Bakery Online", "location": "Global Warehouse"},
-            {"product": "Canned Beans", "price": 1.20, "source": "Amazon", "location": "Global Warehouse"}
-        ]
 
     def search_hybrid(self, query):
-        """O coração do projeto: A busca inteligente que une Local + Global."""
-        query = query.lower()
+        """O Agente Orquestrador decide: Buscar Local ou Buscar na Web."""
         
-        # 1. Busca no Inventário Local (Vendedores da plataforma)
+        # 1. Busca no Inventário Local (Vendedores cadastrados)
         local_results = st.session_state.local_inventory[
-            st.session_state.local_inventory['product'].str.lower().str.contains(query)
+            st.session_state.local_inventory['product'].str.contains(query, case=False, na=False)
         ].copy()
 
-        # 2. Busca no Mundo Global (Simulando o Agente pesquisando na Web)
-        global_results = []
-        for item in self.global_mock_data:
-            if query in item['product'].lower():
-                global_results.append(item)
-        
-        return local_results, global_results
+        # 2. Busca na Web (O Agente Pesquisador usando Tavily API)
+        web_results = self.web_search_agent(query)
 
-    def register_seller_item(self, product, qty, price, loc, addr, is_prod):
-        """Registra um item para que ele apareça na busca local."""
+        return local_results, web_results
+
+    def web_search_agent(self, query):
+        """O Agente Pesquisador: Vai na internet e traz dados estruturados."""
+        if TAVILY_API_KEY == "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":
+            return [{"product": "Erro", "price": 0, "source": "API Key faltando", "location": "N/A"}]
+
+        url = "https://api.tavily.com/search"
+        payload = {
+            "api_key": TAVILY_API_KEY,
+            "query": f"current price and availability of {query}",
+            "search_depth": "smart",
+            "max_results": 3
+        }
+        
+        try:
+            response = requests.post(url, json=payload)
+            results = response.json().get('results', [])
+            
+            web_data = []
+            for res in results:
+                # Aqui o Agente "Sintetiza" o resultado da web para o formato do Logiflow
+                web_data.append({
+                    "product": query,
+                    "price": 0.0, # A API traz texto, em um sistema real usaríamos um LLM para extrair o preço
+                    "source": res.get('title', 'Web'),
+                    "location": "Online / Global",
+                    "url": res.get('url', '#')
+                })
+            return web_data
+        except Exception as e:
+            return []
+
+    def register_item(self, data):
         new_item = {
-            "product": product,
-            "store": "Minha Loja Local", # Em um app real, viria do perfil do vendedor
-            "price": price,
-            "location": loc,
-            "address": addr,
-            "is_producer": is_prod,
-            "expiry": (datetime.date.today() + datetime.timedelta(days=10)).isoformat()
+            "product": data['name'], "store": data['loc'], "price": data['price'],
+            "location": data['loc'], "is_producer": data['is_prod'], 
+            "expiry": data['exp']
         }
         st.session_state.local_inventory = pd.concat([st.session_state.local_inventory, pd.DataFrame([new_item])], ignore_index=True)
         return True
 
 # ==============================================================================
-# 2. INTERFACE (O Dashboard do Usuário e do Vendedor)
+# 2. INTERFACE (UI)
 # ==============================================================================
 
 def main():
     engine = LogiflowEngine()
+    st.set_page_config(page_title="Logiflow AI Bridge", layout="wide")
 
-    st.set_page_config(page_title="Logiflow Bridge", layout="wide")
-    
-    # Sidebar de Navegação
-    st.sidebar.title("🌿 Logiflow")
-    mode = st.sidebar.radio("Acesse como:", ["🛒 Consumidor (User)", "🏪 Vendedor (Seller)"])
+    st.sidebar.title("🌿 Logiflow AI")
+    mode = st.sidebar.radio("Modo de Acesso:", ["🛒 Consumidor (User)", "🏪 Vendedor (Seller)"])
 
     if mode == "🛒 Consumidor (User)":
-        render_user_view(engine)
+        st.title("🔍 Smart Search Bridge")
+        st.write("Conectando o que você precisa com o que o mundo tem.")
+
+        query = st.text_input("O que você deseja encontrar?", placeholder="Ex: Organic Milk")
+
+        if query:
+            with st.spinner("Agentes trabalhando... Pesquisando local e globalmente..."):
+                local_df, web_list = engine.search_hybrid(query)
+
+            # --- EXIBIÇÃO LOCAL ---
+            if not local_df.empty:
+                st.subheader("📍 Disponível na sua região (Local)")
+                for _, row in local_df.iterrows():
+                    with st.container():
+                        st.markdown(f"""
+                        <div style="border: 1px solid #27ae60; padding: 15px; border-radius: 10px; background: white; margin-bottom: 10px;">
+                            <div style="font-size: 18px; font-weight: bold;">{row['product']}</div>
+                            <div style="color: #27ae60;">{'🌿 PRODUTOR LOCAL' if row['is_producer'] else '🏪 Loja Parceira'}</div>
+                            <div style="font-size: 16px;">Preço: ${row['price']:.2f}</div>
+                            <div style="font-size: 12px; color: #7f8c8d;">📍 {row['location']}</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+            # --- EXIBIÇÃO WEB (A PONTE) ---
+            if web_list:
+                st.write("---")
+                st.subheader("🌐 Encontrado na Web (Global)")
+                for item in web_list:
+                    with st.container():
+                        st.markdown(f"""
+                        <div style="border: 1px solid #3498db; padding: 15px; border-radius: 10px; background: #f0f7ff;">
+                            <div style="font-size: 16px; font-weight: bold;">{item['product']}</div>
+                            <div style="font-size: 13px; color: #3498db;">Fonte: {item['source']}</div>
+                            <div style="font-size: 12px; color: #7f8c8d;">🌐 {item['location']}</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+
     else:
-        render_seller_view(engine)
-
-def render_user_view(engine):
-    st.title("🔍 Logiflow Search Bridge")
-    st.write("Encontre produtos locais ou explore opções globais.")
-
-    query = st.text_input("O que você está procurando?", placeholder="Ex: Milk, Avocado...")
-
-    if query:
-        local_df, global_list = engine.search_hybrid(query)
-
-        # --- SEÇÃO 1: RESULTADOS LOCAIS (Ouro do Projeto) ---
-        if not local_df.empty:
-            st.subheader("📍 Disponível na sua região (Local)")
-            for _, row in local_df.iterrows():
-                with st.container():
-                    col1, col2 = st.columns([3, 1])
-                    with col1:
-                        badge = "🌿 PRODUTOR LOCAL" if row['is_producer'] else "🏪 Loja Parceira"
-                        st.markdown(f"**{row['product']}** ({badge})")
-                        st.caption(f"📍 {row['location']} | {row['address']}")
-                    with col2:
-                        st.write(f"**${row['price']:.2f}**")
-                        if st.button("Ver Detalhes", key=f"btn_{row['product']}"):
-                            st.info(f"Abrindo chat com {row['store']}...")
-                    st.divider()
-
-        # --- SEÇÃO 2: RESULTADOS GLOBAIS (A Ponte para o Mundo) ---
-        if global_list:
-            st.subheader("🌐 Encontrado na Web (Global)")
-            st.caption("Não encontramos localmente, mas o Logiflow encontrou estas opções online:")
-            for item in global_list:
-                col1, col2 = st.columns([3, 1])
-                with col1:
-                    st.markdown(f"**{item['product']}**")
-                    st.caption(f"Fonte: {item['source']} | {item['location']}")
-                with col2:
-                    st.write(f"${item['price']:.2f}")
-                    st.link_button("Ver no Site", "https://www.google.com/shopping")
-                st.divider()
-        
-        if local_df.empty and not global_list:
-            st.error("Nenhum item encontrado localmente ou na web.")
-
-def render_seller_view(engine):
-    st.title("🏪 Seller Dashboard")
-    st.write("Cadastre seus produtos para aparecer no mapa local.")
-
-    with st.expander("➕ Cadastrar Novo Produto", expanded=True):
+        # --- MODO VENDEDOR (SIMPLIFICADO) ---
+        st.title("🏪 Seller Dashboard")
         with st.form("seller_form"):
-            name = st.text_input("Nome do Produto")
-            price = st.number_input("Preço ($)", min_value=0.0, step=0.5)
+            name = st.text_input("Produto")
+            price = st.number_input("Preço", min_value=0.0)
             qty = st.number_input("Quantidade", min_value=1)
-            loc = st.text_input("Nome da Loja/Fazenda")
-            addr = st.text_input("Endereço de Entrega")
-            is_prod = st.checkbox("Sou um Produtor Local")
+            loc = st.text_input("Nome da Loja")
+            addr = st.text_input("Endereço")
+            is_prod = st.checkbox("Sou Produtor Local")
+            exp = st.date_input("Validade")
             
-            submit = st.form_submit_button("Publicar no Logiflow")
-            
-            if submit:
-                if name and loc:
-                    engine.register_item_simplified(name, qty, price, loc, addr, is_prod)
-                    st.success(f"✅ {name} agora está visível para os clientes!")
-                else:
-                    st.error("Preencha o nome e a localização.")
-
-    # Adicionando uma função de ajuda para o register_item no engine
-    # (Para evitar erro de chamada, vamos adicionar direto aqui no código de exemplo)
-
-# --- Ajuste de correção para o método de registro ---
-def register_item_helper(engine, name, qty, price, loc, addr, is_prod):
-    # Esta função é uma versão simplificada para o protótipo
-    new_item = {
-        "product": name, "store": "Minha Loja", "price": price, 
-        "quantity": qty, "location": loc, "address": addr, 
-        "is_producer": is_prod, "expiry_date": (datetime.date.today() + datetime.timedelta(days=10)).isoformat()
-    }
-    st.session_state.local_inventory = pd.concat([st.session_state.local_inventory, pd.DataFrame([new_item])], ignore_index=True)
-    return True
-
-# Substituindo a chamada original para garantir que funcione
-def register_item_simplified(engine, name, qty, price, loc, addr, is_prod):
-    # Simulação de registro direto no dataframe da sessão
-    new_item = {
-        "product": name, "store": "Minha Loja", "price": price, 
-        "quantity": qty, "location": loc, "address": addr, 
-        "is_producer": is_prod, "expiry_date": (datetime.date.today() + datetime.timedelta(days=10)).isoformat()
-    }
-    st.session_state.local_inventory = pd.concat([st.session_state.local_inventory, pd.DataFrame([new_item])], ignore_index=True)
-    return True, "Sucesso"
-
-# Sobrescrevendo o método do engine para o protótipo
-LogiflowEngine.register_item = lambda self, data: register_item_simplified(self, data['name'], data['qty'], data['price'], data['loc'], data['addr'], data['is_prod'])
+            if st.form_submit_button("Publicar no Logiflow"):
+                data = {"name": name, "price": price, "qty": qty, "loc": loc, "addr": addr, "is_prod": is_prod, "exp": exp.isoformat()}
+                engine.register_item(data)
+                st.success("Produto publicado com sucesso!")
+        
+        st.write("### Seu Estoque Atual")
+        st.dataframe(st.session_state.local_inventory)
 
 if __name__ == "__main__":
     main()
