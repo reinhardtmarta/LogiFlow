@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import datetime
 import random
+import requests
+import json
 
 # ==============================================================================
 # 1. DATA ENGINE (Simulando o Mundo Real e o Banco Local)
