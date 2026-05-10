@@ -94,7 +94,9 @@ def main():
 
     # Inicialização de Sessão
     if 'user_id' not in st.session_state: st.session_state.user_id = None
-    if 'role' not be st.session_state.role = None
+    if 'role' not in st.session_state:
+    st.session_state.role = None
+
     if 'active_chat' not in st.session_state: st.session_state.active_chat = None
 
     # --- SIDEBAR: LOGIN & NAVEGAÇÃO ---
