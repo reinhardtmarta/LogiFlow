@@ -1,291 +1,250 @@
 import streamlit as st
 import pandas as pd
-import datetime
-import random
 import sqlite3
-import requests
-import os
+import datetime
 
 # ==============================================================================
-# 1. CONFIGURAÇÃO DE SEGURANÇA (API KEYS)
+# 1. ENGINE DE DADOS (DATABASE & LOGIC)
 # ==============================================================================
 
-def get_api_key():
-    """Busca a chave no Streamlit Secrets ou no ambiente local."""
-    if "TAVILY_API_KEY" in st.secrets:
-        return st.secrets["TAVILY_API_KEY"]
-    return os.getenv("TAVILY_API_KEY", "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")
+class LogiflowDB:
+    def __init__(self):
+        self.conn = sqlite3.connect("logiflow_final.db", check_same_thread=False)
+        self._setup_tables()
 
-TAVILY_API_KEY = get_api_key()
-
-# ==============================================================================
-# 2. MOTOR DE DADOS (DATABASE & ENGINE)
-# ==============================================================================
-
-class LogiflowEngine:
-    def __init__(self, db_name="logiflow_final.db"):
-        self.db_name = db_name
-        self._setup_db()
-        self.proposals = []
-
-    def _get_conn(self):
-        return sqlite3.connect(self.db_name)
-
-    def _setup_db(self):
-        conn = self._get_conn()
-        cursor = conn.cursor()
-        cursor.execute("CREATE TABLE IF NOT EXISTS products")
-        cursor.execute("CREATE TABLE IF NOT EXISTS inventory")
+    def _setup_tables(self):
+        cursor = self.conn.cursor()
+        # Tabela de Usuários (Vendedores e Clientes)
+        cursor.execute('''CREATE TABLE IF NOT EXISTS users (
+                            user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            name TEXT, email TEXT, phone TEXT, address TEXT, is_seller BOOLEAN)''')
         
-        cursor.execute('''CREATE TABLE products (
-                            product_id INTEGER PRIMARY KEY,
-                            name TEXT,
-                            is_perishable BOOLEAN,
-                            is_producer BOOLEAN)''')
+        # Tabela de Produtos
+        cursor.execute('''CREATE TABLE IF NOT EXISTS products (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            user_id INTEGER, name TEXT, qty INTEGER, price REAL, 
+                            expiry DATE, condition TEXT, is_producer BOOLEAN, address TEXT,
+                            FOREIGN KEY(user_id) REFERENCES users(user_id))''')
 
-        cursor.execute('''CREATE TABLE inventory (
-                            item_id INTEGER PRIMARY KEY,
-                            product_id INTEGER,
-                            quantity INTEGER,
-                            location TEXT,
-                            expiry_date DATE,
-                            price REAL,
-                            last_updated TIMESTAMP,
-                            discount_pct REAL,
-                            address TEXT,
-                            FOREIGN KEY(product_id) REFERENCES products(product_id))''')
+        # Tabela de Chat
+        cursor.execute('''CREATE TABLE IF NOT EXISTS messages (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            sender_id INTEGER, receiver_id INTEGER, message TEXT, timestamp TIMESTAMP)''')
 
-        products = [
-            (1, "Organic Milk", 1, 0),
-            (2, "Fresh Avocado", 1, 1),
-            (3, "Greek Yogurt", 1, 0),
-            (4, "Sourdough Bread", 1, 1),
-            (5, "Canned Beans", 0, 0)
-        ]
-        cursor.executemany("INSERT INTO products VALUES (?,?,?,?)", products)
-        conn.commit()
-        conn.close()
-        self.seed_initial_inventory()
+        # Tabela de Bloqueio
+        cursor.execute('''CREATE TABLE IF NOT EXISTS blocks (
+                            blocker_id INTEGER, blocked_id INTEGER,
+                            PRIMARY KEY(blocker_id, blocked_id))''')
+        self.conn.commit()
 
-    def seed_initial_inventory(self):
-        conn = self._get_conn()
-        cursor = conn.cursor()
-        today = datetime.date.today()
-        inventory = [
-            (1, 1, 20, "Main St Shop", (today + datetime.timedelta(days=10)).isoformat(), 4.50, today.isoformat(), 0.0, "123 Market Ave"),
-            (2, 2, 15, "Green Corner", (today + datetime.timedelta(days=1)).isoformat(), 2.0, today.isoformat(), 0.0, "45 Farm Road")
-        ]
-        cursor.executemany("INSERT INTO inventory VALUES (?,?,?,?,?,?,?,?,?)", inventory)
-        conn.commit()
-        conn.close()
+    def register_user(self, name, email, phone, address, is_seller):
+        cursor = self.conn.cursor()
+        cursor.execute("INSERT INTO users (name, email, phone, address, is_seller) VALUES (?,?,?,?,?)",
+                       (name, email, phone, address, is_seller))
+        self.conn.commit()
+        return cursor.lastrowid
 
-    def search_hybrid(self, query):
-        """Busca Local + Busca na Web (Agente Pesquisador)."""
-        # 1. Busca Local
-        conn = self._get_conn()
-        sql = "SELECT i.item_id, p.name, i.quantity, i.location, i.expiry_date, i.price, i.discount_pct, p.is_producer, i.address FROM inventory i JOIN products p ON i.product_id = p.product_id WHERE p.name LIKE ?"
-        local_df = pd.read_sql_query(sql, conn, params=(f"%{query}%",))
-        conn.close()
+    def add_product(self, user_id, name, qty, price, expiry, condition, is_producer, address):
+        cursor = self.conn.cursor()
+        cursor.execute("""INSERT INTO products (user_id, name, qty, price, expiry_date, condition, is_producer, address) 
+                          VALUES (?,?,?,?,?,?,?,?)""", (user_id, name, qty, price, expiry, condition, is_producer, address))
+        self.conn.commit()
 
-        # 2. Busca Web (Tavily API)
-        web_results = []
-        if TAVILY_API_KEY != "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":
-            try:
-                url = "https://api.tavily.com/search"
-                payload = {"api_key": TAVILY_API_KEY, "query": f"availability and price of {query}", "search_depth": "smart", "max_results": 3}
-                response = requests.post(url, json=payload)
-                for res in response.json().get('results', []):
-                    web_results.append({
-                        "name": query, "price": 0.0, "source": res.get('title', 'Web'),
-                        "location": "Global Web", "is_producer": False, "address": res.get('url', '#')
-                    })
-            except:
-                pass 
-        
-        return local_df, web_results
+    def get_products(self, query=None):
+        cursor = self.conn.cursor()
+        if query:
+            sql = """SELECT p.*, u.name as seller_name, u.phone as seller_phone, u.user_id as seller_id 
+                     FROM products p JOIN users u ON p.user_id = u.user_id WHERE p.name LIKE ?"""
+            return pd.read_sql_query(sql, self.conn, params=(f"%{query}%",))
+        else:
+            return pd.read_sql_query("SELECT p.*, u.name as seller_name, u.phone as seller_phone, u.user_id as seller_id FROM products p JOIN users u ON p.user_id = u.user_id", self.conn)
 
-    def run_ai_analysis(self):
-        conn = self._get_conn()
-        df = pd.read_sql_query("SELECT i.item_id, p.product, i.expiry_date, i.quantity, i.price FROM inventory i JOIN products p ON i.product_id = p.product_id", conn)
-        conn.close()
-        self.proposals = []
-        today = datetime.date.today()
-        for _, row in df.iterrows():
-            expiry = pd.to_datetime(row['expiry_date']).date()
-            days_to_exp = (expiry - today).days
-            if 0 <= days_to_exp < 3 and row['price'] > 0:
-                self.proposals.append({'type': 'DISCOUNT', 'item_id': row['item_id'], 'product': row['product'], 'reason': f"Expiring in {days_to_exp} days", 'action_val': 0.50})
-            elif row['quantity'] < 10:
-                self.proposals.append({'type': 'RESTOCK', 'item_id': row['item_id'], 'product': row['product'], 'reason': "Stock critically low", 'action_val': None})
-        return self.proposals
+    def send_msg(self, sender_id, receiver_id, text):
+        cursor = self.conn.cursor()
+        cursor.execute("INSERT INTO messages (sender_id, receiver_id, message, timestamp) VALUES (?,?,?,?)",
+                       (sender_id, receiver_id, text, datetime.datetime.now()))
+        self.conn.commit()
 
-    def authorize_action(self, idx):
-        prop = self.proposals.pop(idx)
-        conn = self._get_conn()
-        cursor = conn.cursor()
-        if prop['type'] == 'DISCOUNT':
-            cursor.execute("UPDATE inventory SET discount_pct = ? WHERE item_id = ?", (prop['action_val'], prop['item_id']))
-        elif prop['type'] == 'RESTOCK':
-            cursor.execute("UPDATE inventory SET quantity = quantity + 50 WHERE item_id = ?", (prop['item_id'],))
-        conn.commit()
-        conn.close()
-        return True
+    def get_chat(self, user_a, user_b):
+        cursor = self.conn.cursor()
+        cursor.execute("""SELECT sender_id, message, timestamp FROM messages 
+                          WHERE (sender_id = ? AND receiver_id = ?) 
+                          OR (sender_id = ? AND receiver_id = ?) 
+                          ORDER BY timestamp ASC""", (user_a, user_b, user_b, user_a))
+        return cursor.fetchall()
 
-    def register_item(self, data):
-        conn = self._get_conn()
-        cursor = conn.cursor()
-        cursor.execute("SELECT product_id FROM products WHERE name = ?", (data['name'],))
-        res = cursor.fetchone()
-        if not res: return False, "Product not in registry."
-        pid = res[0]
-        cursor.execute("INSERT INTO inventory (product_id, quantity, location, expiry_date, price, last_updated, discount_pct, address) VALUES (?,?,?,?,?,?,?,?)",
-                       (pid, data['qty'], data['loc'], data['exp'], data['price'], data['last_upd'], 0.0, data['addr']))
-        conn.commit()
-        conn.close()
-        return True, "Success!"
+    def block_user(self, blocker_id, blocked_id):
+        cursor = self.conn.cursor()
+        cursor.execute("INSERT OR IGNORE INTO blocks (blocker_id, blocked_id) VALUES (?,?)", (blocker_id, blocked_id))
+        self.conn.commit()
+
+    def is_blocked(self, user_a, user_id_b):
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT 1 FROM blocks WHERE blocker_id = ? AND blocked_id = ?", (user_a, user_id_b))
+        return cursor.fetchone() is not None
+
+db = LogiflowDB()
 
 # ==============================================================================
 # 3. INTERFACE (UI)
 # ==============================================================================
 
-class LogiflowUI:
-    def __init__(self, engine):
-        self.engine = engine
-        self.setup_widgets()
-
-    def setup_widgets(self):
-        # User
-        self.user_input = st.text_input("🔍 Search Products", placeholder="e.g. Milk")
-        self.user_output = st.container()
-
-        # Seller
-        st.sidebar.header("🏪 Seller Dashboard")
-        self.s_prod = st.sidebar.text_input("Product Name")
-        self.s_qty = st.sidebar.number_input("Quantity", min_value=1)
-        self.s_price = st.sidebar.number_input("Price ($)", min_value=0.0)
-        self.s_exp = st.sidebar.date_input("Expiry Date")
-        self.s_loc = st.sidebar.text_input("Store Name")
-        self.s_addr = st.sidebar.text_input("Address")
-        self.s_is_prod = st.sidebar.checkbox("Local Producer?")
-        self.s_submit = st.sidebar.button("🚀 Register Item")
-        
-        self.decision_output = st.sidebar.container()
-        self.impact_output = st.sidebar.container()
-
-    def render_user_view(self, query):
-        if query:
-            local_df, web_list = self.engine.search_hybrid(query)
-            
-            if not local_df.empty:
-                st.subheader("📍 Available Locally")
-                for _, row in local_df.iterrows():
-                    is_zero_waste = row['discount_pct'] > 0 or (pd.to_datetime(row['expiry_date']).date() - datetime.date.today()).days < 3
-                    badge = "🌿 LOCAL" if row['is_producer'] else "🏪 STORE"
-                    st.markdown(f"""
-                    <div style="border:1px solid #ddd; padding:10px; border-radius:10px; margin-bottom:10px;">
-                        <b>{row['name']}</b> ({badge})<br>
-                        Price: {'FREE' if is_zero_waste else f'${row['price']:.2f}'}<br>
-                        <small>{row['location']} | {row['address']}</small>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-            if web_list:
-                st.subheader("🌐 Found Online (Global)")
-                for item in web_list:
-                    st.info(f"**{item['product']}** - {item['source']} ({item['location']})")
-
-    def render_seller_view(self):
-        st.subheader("📦 Inventory Management")
-        # Mostrar estoque atual
-        conn = self.engine._get_conn()
-        df = pd.read_sql_query("SELECT p.name, i.quantity, i.price, i.expiry_date FROM inventory i JOIN products p ON i.product_id = p.product_id", conn)
-        conn.close()
-        st.dataframe(df, use_container_width=True)
-
-        st.write("---")
-        st.subheader("🤖 AI Co-Pilot Suggestions")
-        proposals = self.engine.run_ai_analysis()
-        if not proposals:
-            st.write("No urgent actions needed.")
-        else:
-            for i, p in enumerate(proposals):
-                col1, col2 = st.columns([3, 1])
-                col1.warning(f"{p['name']}: {p['reason']}")
-                if col2.button("Approve", key=f"app_{i}"):
-                    self.engine.authorize_action(i)
-                    st.rerun()
-
-        # Registro de novo item
-        st.write("---")
-        st.subheader("➕ New Entry")
-        if st.button("Register New Item (Use Sidebar Form)"):
-            pass # O formulário já está na sidebar
-
-# ==============================================================================
-# 4. MAIN APP
-# ==============================================================================
-
 def main():
     st.set_page_config(page_title="Logiflow Bridge", layout="wide")
-    engine = LogiflowEngine()
 
+    # Inicialização de Sessão
+    if 'user_id' not in st.session_state: st.session_state.user_id = None
+    if 'role' not be st.session_state.role = None
+    if 'active_chat' not in st.session_state: st.session_state.active_chat = None
+
+    # --- SIDEBAR: LOGIN & NAVEGAÇÃO ---
     st.sidebar.title("🌿 Logiflow")
-    mode = st.sidebar.radio("Mode:", ["🛒 Consumer", "🏪 Seller"])
-
-    if mode == "🛒 Consumer":
-        st.title("Consumer Search Portal")
-        query = st.text_input("What are you looking for?")
-        if query:
-            engine.search_hybrid(query) # Chamada interna para o render
-            # Para simplificar o fluxo no Stream_app, vamos usar o engine diretamente no render
-            local_df, web_list = engine.search_hybrid(query)
-            
-            if not local_df.empty:
-                st.subheader("📍 Local Results")
-                for _, row in local_df.iterrows():
-                    is_zw = row['discount_pct'] > 0 or (pd.to_datetime(row['expiry_date']).date() - datetime.date.today()).days < 3
-                    st.write(f"✅ **{row['name']}** - ${row['price']:.2f} ({row['location']}) {'🔥 ZERO WASTE' if is_zw else ''}")
-            
-            if web_list:
-                st.subheader("🌐 Global Results")
-                for item in web_list:
-                    st.write(f"🌐 {item['product']} via {item['source']}")
-
-    else:
-        # Modo Vendedor
-        st.title("Seller Dashboard")
+    
+    if st.session_state.user_id is None:
+        st.sidebar.subheader("Login / Cadastro")
+        mode = st.sidebar.radio("Entrar como:", ["Consumidor", "Vendedor"])
         
-        # Sidebar Registration
-        if st.sidebar.button("🚀 Submit New Item"):
-            # Pegando dados dos widgets da sidebar
-            data = {
-                "name": st.session_state.get('s_prod_val', "Milk"), # Exemplo simplificado
-                "qty": 10, "price": 5.0, "loc": "Store A", "addr": "Street 1", "is_prod": True, "exp": "2025-01-01"
-            }
-            # Para o protótipo, vamos usar os valores reais dos widgets:
-            # (Nota: Em um app real, usaríamos o form do streamlit)
-            pass 
-            st.sidebar.text_input()
-
-        # Mostrar Sugestões da IA
-        st.subheader("🤖 AI Co-Pilot Suggestions")
-        proposals = engine.run_ai_analysis()
-        if not proposals:
-            st.success("All stock is healthy!")
-        else:
-            for i, p in enumerate(proposals):
-                col1, col2 = st.columns([3, 1])
-                col1.warning(f"{p['name']}: {p['reason']}")
-                if col2.button("Approve", key=f"btn_{i}"):
-                    engine.authorize_action(i)
+        with st.sidebar.form("auth_form"):
+            name = st.text_input("Nome Completo")
+            email = st.text_input("E-mail")
+            phone = st.text_input("Telefone")
+            addr = st.text_input("Endereço")
+            submit = st.form_submit_button("Entrar no Sistema")
+            
+            if submit:
+                if name and email and phone:
+                    uid = db.register_user(name, email, phone, addr, mode == "Vendedor")
+                    st.session_state.user_id = uid
+                    st.session_state.role = "seller" if mode == "Vendedor" else "user"
                     st.rerun()
+                else:
+                    st.error("Preencha todos os campos.")
+    else:
+        st.sidebar.success(f"Logado como: {st.session_state.role.capitalize()}")
+        if st.sidebar.button("Sair"):
+            st.session_state.user_id = None
+            st.rerun()
 
+    # --- CONTEÚDO PRINCIPAL ---
+    if st.session_state.user_id:
+        if st.session_state.role == "user":
+            render_consumer_view()
+        else:
+            render_seller_view()
+    else:
+        st.title("Bem-vindo ao Logiflow")
+        st.info("Por favor, faça login na barra lateral para continuar.")
+
+# --- TELAS ---
+
+def render_consumer_view():
+    st.title("🛒 Marketplace Solidário")
+    query = st.text_input("O que você procura hoje?", placeholder="Ex: Milk, Avocado...")
+
+    if query:
+        results = db.get_products_by_query(query) # Implementar busca por nome
+        # Para o exemplo, vamos usar a busca do engine
+        results = db.get_products_by_query(query) 
+        
+        # (Simplificando para o exemplo funcionar imediatamente)
+        results = db.get_products_by_query(query) 
+
+        if results.empty:
+            st.warning("Nenhum item encontrado localmente.")
+        else:
+            for _, row in results.iterrows():
+                with st.container():
+                    col1, col2 = st.columns([3, 1])
+                    with col1:
+                        badge = "🌿 PRODUTOR" if row['is_producer'] else "🏪 LOJA"
+                        st.markdown(f"### {row['name']} ({badge})")
+                        st.write(f"📍 {row['address']} | 📅 Validade: {row['expiry_date']}")
+                        st.write(f"Estado: {row['condition']}")
+                        
+                        # Lógica de Doação
+                        is_donation = row['price'] <= 0 or (pd.to_datetime(row['expiry_date']).date() - datetime.date.today()).days < 2
+                        if is_donation:
+                            st.error("🎁 STATUS: DISPONÍVEL PARA DOAÇÃO / FREE")
+                        else:
+                            st.write(f"**Preço: ${row['price']:.2f}**")
+                    
+                    with col2:
+                        if st.button("💬 Chat", key=f"chat_{row['item_id']}"):
+                            st.session_state.active_chat = row['user_id']
+                            st.rerun()
+                        
+                        if st.button("🚫 Bloquear", key=f"block_{row['item_id']}"):
+                            db.block_user(st.session_state.user_id, row['user_id'])
+                            st.success("Usuído bloqueado.")
+                    st.divider()
+
+    # --- ÁREA DE CHAT (Aparece se um chat estiver ativo) ---
+    if st.session_state.get('active_chat'):
         st.write("---")
-        st.subheader("📦 Current Inventory")
-        conn = engine._get_conn()
-        df = pd.read_sql_query("SELECT p.name, i.quantity, i.price, i.expiry_date FROM inventory i JOIN products p ON i.product_id = p.product_id", conn)
-        conn.close()
-        st.dataframe(df, use_container_width=True)
+        st.subheader("💬 Conversa Direta")
+        target_id = st.session_state.active_chat
+        
+        # Verificar se foi bloqueado
+        if db.is_blocked(st.session_state.user_id, target_id):
+            st.error("Você bloqueou este usuário ou foi bloqueado por ele.")
+        else:
+            # Mostrar mensagens
+            msgs = db.get_chat(st.session_state.user_id, target_id)
+            for m in msgs:
+                role = "Você" if m[0] == st.session_state.user_id else "Vendedor"
+                st.write(f"**{role}:** {m[1]} ({m[2][:5]})")
+
+            # Input de mensagem
+            with st.form("chat_form", clear_on_submit=True):
+                new_msg = st.text_input("Sua mensagem...")
+                if st.form_submit_button("Enviar"):
+                    if new_msg:
+                        db.send_msg(st.session_state.user_id, target_id, new_msg)
+                        st.rerun()
+            
+            if st.button("Fechar Chat"):
+                st.session_state.active_chat = None
+                st.rerun()
+
+def render_seller_view():
+    st.title("🏪 Painel do Vendedor")
+    
+    tab1, tab2 = st.tabs(["📦 Meu Estoque", "➕ Novo Cadastro"])
+
+    with tab1:
+        st.subheader("Meus Produtos")
+        # Busca apenas produtos do usuário logado
+        my_items = db.get_products_by_user(st.session_state.user_id)
+        if my_items.empty:
+            st.info("Você ainda não cadastrou produtos.")
+        else:
+            st.dataframe(my_items, use_container_width=True)
+
+    with tab2:
+        st.subheader("Cadastrar Item")
+        with st.form("add_product_form"):
+            name = st.text_input("Nome do Produto")
+            qty = st.number_input("Quantidade", min_value=1)
+            price = st.number_input("Preço ($)", min_value=0.0)
+            exp = st.date_input("Data de Validade")
+            cond = st.selectbox("Estado do Item", ["Novo", "Usado", "Aberto"])
+            is_prod = st.checkbox("Sou Produtor Local")
+            loc = st.text_input("Nome da Loja/Fazenda")
+            addr = st.text_input("Endereço Completo")
+            
+            if st.form_submit_button("Publicar no Logiflow"):
+                db.add_product(st.session_state.user_id, name, qty, price, exp.isoformat(), cond, is_prod, addr)
+                st.success("Produto publicado com sucesso!")
+
+# --- AJUSTE FINAL PARA O ENGINE (Para o código funcionar sem erros de coluna) ---
+def get_products_by_user(self, user_id):
+    conn = self._get_conn()
+    sql = "SELECT p.name, p.is_perishable, i.quantity, i.price, i.expiry_date, i.condition, i.is_producer, i.address FROM inventory i JOIN products p ON i.product_id = p.product_id WHERE i.user_id = ?"
+    df = pd.read_sql_query(sql, conn, params=(user_id,))
+    conn.close()
+    return df
+
+LogiflowEngine.get_products_by_user = get_products_by_user
 
 if __name__ == "__main__":
     main()
