@@ -287,4 +287,4 @@ def main():
         st.dataframe(df, use_container_width=True)
 
 if __name__ == "__main__":
-    app.main()
+    main()
