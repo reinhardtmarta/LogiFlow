@@ -106,7 +106,7 @@ class LogiflowEngine:
 
     def run_ai_analysis(self):
         conn = self._get_conn()
-        df = pd.read_sql_query("SELECT i.item_id, p.name, i.expiry_date, i.quantity, i.price FROM inventory i JOIN products p ON i.product_id = p.product_id", conn)
+        df = pd.read_sql_query("SELECT i.item_id, p.product, i.expiry_date, i.quantity, i.price FROM inventory i JOIN products p ON i.product_id = p.product_id", conn)
         conn.close()
         self.proposals = []
         today = datetime.date.today()
@@ -114,9 +114,9 @@ class LogiflowEngine:
             expiry = pd.to_datetime(row['expiry_date']).date()
             days_to_exp = (expiry - today).days
             if 0 <= days_to_exp < 3 and row['price'] > 0:
-                self.proposals.append({'type': 'DISCOUNT', 'item_id': row['item_id'], 'name': row['name'], 'reason': f"Expiring in {days_to_exp} days", 'action_val': 0.50})
+                self.proposals.append({'type': 'DISCOUNT', 'item_id': row['item_id'], 'product': row['product'], 'reason': f"Expiring in {days_to_exp} days", 'action_val': 0.50})
             elif row['quantity'] < 10:
-                self.proposals.append({'type': 'RESTOCK', 'item_id': row['item_id'], 'name': row['name'], 'reason': "Stock critically low", 'action_val': None})
+                self.proposals.append({'type': 'RESTOCK', 'item_id': row['item_id'], 'product': row['product'], 'reason': "Stock critically low", 'action_val': None})
         return self.proposals
 
     def authorize_action(self, idx):
@@ -265,6 +265,7 @@ def main():
             # Para o protótipo, vamos usar os valores reais dos widgets:
             # (Nota: Em um app real, usaríamos o form do streamlit)
             pass 
+            st.sidebar.text_input()
 
         # Mostrar Sugestões da IA
         st.subheader("🤖 AI Co-Pilot Suggestions")
