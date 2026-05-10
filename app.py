@@ -286,4 +286,4 @@ def main():
         conn.close()
         st.dataframe(df, use_container_width=True)
 
-if __name__== "__main__"
+if __name__: "__main__"
