@@ -34,8 +34,8 @@ class LogiflowEngine:
     def _setup_db(self):
         conn = self._get_conn()
         cursor = conn.cursor()
-        cursor.execute("DROP TABLE IF EXISTS products")
-        cursor.execute("DROP TABLE IF EXISTS inventory")
+        cursor.execute("CREATE TABLE IF NOT EXISTS products")
+        cursor.execute("CREATE TABLE IF NOT EXISTS inventory")
         
         cursor.execute('''CREATE TABLE products (
                             product_id INTEGER PRIMARY KEY,
