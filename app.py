@@ -9,17 +9,18 @@ import datetime
 
 class LogiflowDB:
     def __init__(self):
+        # check_same_thread=False é necessário para o Streamlit usar SQLite
         self.conn = sqlite3.connect("logiflow_final.db", check_same_thread=False)
         self._setup_tables()
 
     def _setup_tables(self):
         cursor = self.conn.cursor()
-        # Tabela de Usuários (Vendedores e Clientes)
+        # Tabela de Usuários
         cursor.execute('''CREATE TABLE IF NOT EXISTS users (
                             user_id INTEGER PRIMARY KEY AUTOINCREMENT,
                             name TEXT, email TEXT, phone TEXT, address TEXT, is_seller BOOLEAN)''')
         
-        # Tabela de Produtos
+        # Tabela de Produtos (Corrigido: nomes de colunas consistentes)
         cursor.execute('''CREATE TABLE IF NOT EXISTS products (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             user_id INTEGER, name TEXT, qty INTEGER, price REAL, 
@@ -46,18 +47,25 @@ class LogiflowDB:
 
     def add_product(self, user_id, name, qty, price, expiry, condition, is_producer, address):
         cursor = self.conn.cursor()
-        cursor.execute("""INSERT INTO products (user_id, name, qty, price, expiry_date, condition, is_producer, address) 
+        cursor.execute("""INSERT INTO products (user_id, name, qty, price, expiry, condition, is_producer, address) 
                           VALUES (?,?,?,?,?,?,?,?)""", (user_id, name, qty, price, expiry, condition, is_producer, address))
         self.conn.commit()
 
     def get_products(self, query=None):
-        cursor = self.conn.cursor()
+        """Busca produtos para o Marketplace (Consumidor)"""
         if query:
             sql = """SELECT p.*, u.name as seller_name, u.phone as seller_phone, u.user_id as seller_id 
                      FROM products p JOIN users u ON p.user_id = u.user_id WHERE p.name LIKE ?"""
             return pd.read_sql_query(sql, self.conn, params=(f"%{query}%",))
         else:
-            return pd.read_sql_query("SELECT p.*, u.name as seller_name, u.phone as seller_phone, u.user_id as seller_id FROM products p JOIN users u ON p.user_id = u.user_id", self.conn)
+            sql = """SELECT p.*, u.name as seller_name, u.phone as seller_phone, u.user_id as seller_id 
+                     FROM products p JOIN users u ON p.user_id = u.user_id"""
+            return pd.read_sql_query(sql, self.conn)
+
+    def get_products_by_user(self, user_id):
+        """Busca produtos de um vendedor específico"""
+        sql = "SELECT * FROM products WHERE user_id = ?"
+        return pd.read_sql_query(sql, self.conn, params=(user_id,))
 
     def send_msg(self, sender_id, receiver_id, text):
         cursor = self.conn.cursor()
@@ -83,10 +91,11 @@ class LogiflowDB:
         cursor.execute("SELECT 1 FROM blocks WHERE blocker_id = ? AND blocked_id = ?", (user_a, user_id_b))
         return cursor.fetchone() is not None
 
+# Inicialização do banco
 db = LogiflowDB()
 
 # ==============================================================================
-# 3. INTERFACE (UI)
+# 2. INTERFACE (UI)
 # ==============================================================================
 
 def main():
@@ -95,7 +104,6 @@ def main():
     # Inicialização de Sessão
     if 'user_id' not in st.session_state: st.session_state.user_id = None
     if 'role' not in st.session_state: st.session_state.role = None
-
     if 'active_chat' not in st.session_state: st.session_state.active_chat = None
 
     # --- SIDEBAR: LOGIN & NAVEGAÇÃO ---
@@ -124,6 +132,8 @@ def main():
         st.sidebar.success(f"Logado como: {st.session_state.role.capitalize()}")
         if st.sidebar.button("Sair"):
             st.session_state.user_id = None
+            st.session_state.role = None
+            st.session_state.active_chat = None
             st.rerun()
 
     # --- CONTEÚDO PRINCIPAL ---
@@ -142,60 +152,63 @@ def render_consumer_view():
     st.title("🛒 Marketplace Solidário")
     query = st.text_input("O que você procura hoje?", placeholder="Ex: Milk, Avocado...")
 
-    if query:
-        results = db.get_products_by_query(query) # Implementar busca por nome
-        # Para o exemplo, vamos usar a busca do engine
-        results = db.get_products_by_query(query) 
-        
-        # (Simplificando para o exemplo funcionar imediatamente)
-        results = db.get_products_by_query(query) 
+    # Busca de produtos
+    results = db.get_products(query)
 
-        if results.empty:
-            st.warning("Nenhum item encontrado localmente.")
-        else:
-            for _, row in results.iterrows():
-                with st.container():
-                    col1, col2 = st.columns([3, 1])
-                    with col1:
-                        badge = "🌿 PRODUTOR" if row['is_producer'] else "🏪 LOJA"
-                        st.markdown(f"### {row['name']} ({badge})")
-                        st.write(f"📍 {row['address']} | 📅 Validade: {row['expiry_date']}")
-                        st.write(f"Estado: {row['condition']}")
-                        
-                        # Lógica de Doação
-                        is_donation = row['price'] <= 0 or (pd.to_datetime(row['expiry_date']).date() - datetime.date.today()).days < 2
-                        if is_donation:
-                            st.error("🎁 STATUS: DISPONÍVEL PARA DOAÇÃO / FREE")
-                        else:
-                            st.write(f"**Preço: ${row['price']:.2f}**")
+    if results.empty:
+        st.warning("Nenhum item encontrado.")
+    else:
+        for _, row in results.iterrows():
+            with st.container():
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    badge = "🌿 PRODUTOR" if row['is_producer'] else "🏪 LOJA"
+                    st.markdown(f"### {row['name']} ({badge})")
+                    st.write(f"📍 {row['address']} | 📅 Validade: {row['expiry']}")
+                    st.write(f"Estado: {row['condition']}")
                     
-                    with col2:
-                        if st.button("💬 Chat", key=f"chat_{row['item_id']}"):
-                            st.session_state.active_chat = row['user_id']
-                            st.rerun()
-                        
-                        if st.button("🚫 Bloquear", key=f"block_{row['item_id']}"):
-                            db.block_user(st.session_state.user_id, row['user_id'])
-                            st.success("Usuído bloqueado.")
-                    st.divider()
+                    # Lógica de Doação (Preço 0 ou próximo do vencimento)
+                    try:
+                        expiry_dt = datetime.datetime.strptime(str(row['expiry']), '%Y-%m-%d').date()
+                        days_to_expiry = (expiry_dt - datetime.date.today()).days
+                    except:
+                        days_to_expiry = 999
 
-    # --- ÁREA DE CHAT (Aparece se um chat estiver ativo) ---
-    if st.session_state.get('active_chat'):
+                    if row['price'] <= 0 or days_to_expiry < 2:
+                        st.error("🎁 STATUS: DISPONÍVEL PARA DOAÇÃO / FREE")
+                    else:
+                        st.write(f"**Preço: ${row['price']:.2f}**")
+                
+                with col2:
+                    # Botão de Chat
+                    if st.button("💬 Chat", key=f"chat_{row['id']}"):
+                        st.session_state.active_chat = row['user_id']
+                        st.rerun()
+                    
+                    # Botão de Bloqueio
+                    if st.button("🚫 Bloquear", key=f"block_{row['id']}"):
+                        db.block_user(st.session_state.user_id, row['user_id'])
+                        st.success("Usuário bloqueado.")
+                st.divider()
+
+    # --- ÁREA DE CHAT ---
+    if st.session_state.active_chat:
         st.write("---")
         st.subheader("💬 Conversa Direta")
         target_id = st.session_state.active_chat
         
-        # Verificar se foi bloqueado
         if db.is_blocked(st.session_state.user_id, target_id):
             st.error("Você bloqueou este usuário ou foi bloqueado por ele.")
         else:
-            # Mostrar mensagens
             msgs = db.get_chat(st.session_state.user_id, target_id)
-            for m in msgs:
-                role = "Você" if m[0] == st.session_state.user_id else "Vendedor"
-                st.write(f"**{role}:** {m[1]} ({m[2][:5]})")
+            
+            # Container para mensagens
+            chat_container = st.container(height=300)
+            with chat_container:
+                for m in msgs:
+                    sender_name = "Você" if m[0] == st.session_state.user_id else "Vendedor"
+                    chat_container.write(f"**{sender_name}:** {m[1]}  \n*{m[2]}*")
 
-            # Input de mensagem
             with st.form("chat_form", clear_on_submit=True):
                 new_msg = st.text_input("Sua mensagem...")
                 if st.form_submit_button("Enviar"):
@@ -214,38 +227,39 @@ def render_seller_view():
 
     with tab1:
         st.subheader("Meus Produtos")
-        # Busca apenas produtos do usuário logado
         my_items = db.get_products_by_user(st.session_state.user_id)
         if my_items.empty:
             st.info("Você ainda não cadastrou produtos.")
         else:
-            st.dataframe(my_items, use_container_width=True)
+            # Exibição mais limpa dos produtos do vendedor
+            st.dataframe(my_items[['id', 'name', 'qty', 'price', 'expiry', 'condition']], use_container_width=True)
 
     with tab2:
         st.subheader("Cadastrar Item")
         with st.form("add_product_form"):
             name = st.text_input("Nome do Produto")
-            qty = st.number_input("Quantidade", min_value=1)
-            price = st.number_input("Preço ($)", min_value=0.0)
+            qty = st.number_input("Quantidade", min_value=1, step=1)
+            price = st.number_input("Preço ($)", min_value=0.0, step=0.5)
             exp = st.date_input("Data de Validade")
             cond = st.selectbox("Estado do Item", ["Novo", "Usado", "Aberto"])
             is_prod = st.checkbox("Sou Produtor Local")
-            loc = st.text_input("Nome da Loja/Fazenda")
-            addr = st.text_input("Endereço Completo")
+            addr = st.text_input("Endereço da Loja/Fazenda")
             
             if st.form_submit_button("Publicar no Logiflow"):
-                db.add_product(st.session_state.user_id, name, qty, price, exp.isoformat(), cond, is_prod, addr)
-                st.success("Produto publicado com sucesso!")
-
-# --- AJUSTE FINAL PARA O ENGINE (Para o código funcionar sem erros de coluna) ---
-def get_products_by_user(self, user_id):
-    conn = self._get_conn()
-    sql = "SELECT p.name, p.is_perishable, i.quantity, i.price, i.expiry_date, i.condition, i.is_producer, i.address FROM inventory i JOIN products p ON i.product_id = p.product_id WHERE i.user_id = ?"
-    df = pd.read_sql_query(sql, conn, params=(user_id,))
-    conn.close()
-    return df
-
-LogiflowEngine.get_products_by_user = get_products_by_user
+                if name and addr:
+                    db.add_product(
+                        st.session_state.user_id, 
+                        name, 
+                        qty, 
+                        price, 
+                        exp.isoformat(), 
+                        cond, 
+                        is_prod, 
+                        addr
+                    )
+                    st.success("Produto publicado com sucesso!")
+                else:
+                    st.error("Nome e Endereço são obrigatórios.")
 
 if __name__ == "__main__":
     main()
