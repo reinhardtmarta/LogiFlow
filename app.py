@@ -266,7 +266,13 @@ class LogiflowUI:
         conn.close()
 
 # Patching the engine for the demo
-LogiflowEngine.get_products_by_user = lambda self, uid: pd.read_sql_query("SELECT name, qty, price, expiry_date, condition FROM inventory WHERE user_id = ?", self._get_conn(), params=(uid,))
+import pandas as pd
+
+LogiflowEngine.get_products_by_user = lambda self, uid: pd.read_sql_query(
+    sql="SELECT name, qty, price, expiry_date, condition FROM inventory WHERE user_id = ?", 
+    con=self._get_conn(), 
+    params=(uid,)
+)
 
 # ==============================================================================
 # 4. MAIN EXECUTION
