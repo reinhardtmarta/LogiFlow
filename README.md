@@ -44,7 +44,7 @@ The current version of LogiFlow Bridge is a functional **Minimum Viable Product 
 
 ### **Key Features Implemented:**
 * ✅ **Smart Marketplace:** A real-time interface for consumers to find "Rescue Items" near expiry.
-* ✅ **Gemma 4 Intelligence Engine:** Simulated predictive analysis that flags low stock and high-waste risks.
+* ✅ **Gemma 4 Intelligence Engine:** Predictive analysis that flags low stock and high-waste risks.
 * ✅ **Dynamic Pricing Logic:** Automated discount application to move inventory quickly.
 * ✅ **Sustainability Dashboard:** Real-time tracking of "Kilograms of Food Waste Prevented."
 * ✅ **Direct Chat:** Secure communication between buyers and sellers.
