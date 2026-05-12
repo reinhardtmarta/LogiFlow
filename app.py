@@ -4,7 +4,7 @@ import datetime
 import sqlite3
 
 # ==============================================================================
-# 1. DATABASE ENGINE (WITH PASSWORD & FIXES)
+# 1. DATABASE ENGINE (WITH AUTO-MIGRATION & PASSWORD SUPPORT)
 # ==============================================================================
 
 class LogiflowDB:
@@ -18,7 +18,8 @@ class LogiflowDB:
     def _setup_db(self):
         conn = self._get_conn()
         cursor = conn.cursor()
-        # Added 'password' column
+        
+        # 1. Create Tables
         cursor.execute('''CREATE TABLE IF NOT EXISTS users (
                             user_id INTEGER PRIMARY KEY AUTOINCREMENT,
                             name TEXT, email TEXT UNIQUE, password TEXT, 
@@ -35,6 +36,13 @@ class LogiflowDB:
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             sender_id INTEGER, receiver_id INTEGER, message TEXT, timestamp TIMESTAMP)''')
 
+        # 2. DATABASE MIGRATION (Fixes the "no such column: password" error)
+        cursor.execute("PRAGMA table_info(users)")
+        columns = [column[1] for column in cursor.fetchall()]
+        if 'password' not in columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN password TEXT")
+
+        # 3. Seed Data
         cursor.execute("SELECT COUNT(*) FROM users")
         if cursor.fetchone()[0] == 0:
             self._seed_data(cursor)
@@ -43,7 +51,6 @@ class LogiflowDB:
         conn.close()
 
     def _seed_data(self, cursor):
-        # Demo users with passwords
         users = [
             ("Green Valley Farms", "farm@demo.com", "pass123", "555-0101", "123 Rural Road", 1),
             ("Urban Market", "market@demo.com", "pass123", "555-0202", "45 Main St", 1),
@@ -59,14 +66,13 @@ class LogiflowDB:
         ]
         cursor.executemany("INSERT INTO products (user_id, name, qty, price, expiry_date, condition, is_producer, address, waste_prevented_kg) VALUES (?,?,?,?,?,?,?,?,?)", products)
 
-    # --- AUTH METHODS ---
+    # --- AUTH ---
     def login_user(self, email, password):
         conn = self._get_conn()
-        # Check both email AND password
         sql = "SELECT * FROM users WHERE email = ? AND password = ?"
         df = pd.read_sql_query(sql, conn, params=(email, password))
         conn.close()
-        return df # Returns a DataFrame
+        return df
 
     def register_user(self, name, email, password, phone, address, is_seller):
         conn = self._get_conn()
@@ -81,7 +87,7 @@ class LogiflowDB:
         finally:
             conn.close()
 
-    # --- PRODUCT & AI METHODS ---
+    # --- PRODUCT & AI ---
     def search_products(self, query):
         conn = self._get_conn()
         sql = """SELECT p.*, u.name as seller_name, u.phone as seller_phone, u.user_id as seller_id
@@ -136,6 +142,7 @@ class LogiflowDB:
         conn.commit()
         conn.close()
 
+    # --- CHAT ---
     def send_message(self, sender_id, receiver_id, text):
         conn = self._get_conn()
         cursor = conn.cursor()
@@ -194,11 +201,10 @@ class LogiflowUI:
         tab1, tab2 = st.tabs(["🔑 Login", "📝 Register"])
         
         with tab1:
-            email = st.text_input("Email", key="l_email")
+            email = st.text_input("Email Address", key="l_email")
             password = st.text_input("Password", type="password", key="l_pass")
             if st.button("Sign In"):
                 user_df = self.db.login_user(email, password)
-                # FIX: Using .empty instead of if user:
                 if not user_df.empty:
                     st.session_state.user = user_df.iloc[0].to_dict()
                     st.success(f"Welcome back, {st.session_state.user['name']}!")
@@ -225,6 +231,8 @@ class LogiflowUI:
 
     def render_consumer_marketplace(self):
         st.title("🛒 Marketplace")
+        st.info("Browse local products and rescue food before it goes to waste!")
+
         query = st.text_input("🔍 Search products...")
         results = self.db.search_products(query)
 
@@ -235,9 +243,19 @@ class LogiflowUI:
                 with st.container():
                     col1, col2 = st.columns([3, 1])
                     with col1:
-                        st.subheader(row['name'])
-                        st.write(f"📍 {row['address']} | 🏪 {row['seller_name']}")
+                        try:
+                            days_left = (pd.to_datetime(row['expiry_date']).date() - datetime.date.today()).days
+                            is_rescue = days_left <= 2
+                        except: is_rescue = False
+
+                        if is_rescue:
+                            st.error(f"🚨 RESCUE ITEM: {row['name']}")
+                        else:
+                            st.subheader(row['name'])
+                        
+                        st.write(f"📍 {row['address']} | 🏪 **{row['seller_name']}**")
                         st.write(f"**Price: ${row['price']:.2f}**")
+                    
                     with col2:
                         if st.button("💬 Chat", key=f"chat_{row['id']}"):
                             st.session_state.chat_target = row['seller_id']
@@ -289,6 +307,7 @@ class LogiflowUI:
                 if col2.button("Apply", key=f"ai_{i}"):
                     if ins['type'] == 'DISCOUNT':
                         self.db.apply_discount(ins['id'])
+                        st.toast("Discount applied!")
                         st.rerun()
 
         tab1, tab2 = st.tabs(["📦 Inventory", "➕ Add Product"])
@@ -304,7 +323,7 @@ class LogiflowUI:
                 is_p = st.checkbox("Local Producer")
                 if st.form_submit_button("Publish"):
                     self.db.register_product(user_id, name, qty, price, exp.isoformat(), "Fresh", is_p, addr)
-                    st.success("Live!")
+                    st.success("Product live!")
                     st.rerun()
 
 if __name__ == "__main__":
