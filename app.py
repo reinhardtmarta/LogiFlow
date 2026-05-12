@@ -37,7 +37,7 @@ class LogiflowDB:
         if cursor.fetchone()[0] == 0:
             self._seed_data(cursor)
 
-        conn.commit()  # FIX: era cursor.commit()
+        conn.commit() 
         conn.close()
 
     def _seed_data(self, cursor):
