@@ -4,7 +4,7 @@ import datetime
 import sqlite3
 
 # ==============================================================================
-# 1. DATABASE ENGINE (CORE LOGIC)
+# 1. DATABASE ENGINE (WITH PASSWORD & FIXES)
 # ==============================================================================
 
 class LogiflowDB:
@@ -18,23 +18,23 @@ class LogiflowDB:
     def _setup_db(self):
         conn = self._get_conn()
         cursor = conn.cursor()
-        # Users Table
+        # Added 'password' column
         cursor.execute('''CREATE TABLE IF NOT EXISTS users (
                             user_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            name TEXT, email TEXT UNIQUE, phone TEXT, address TEXT, is_seller BOOLEAN)''')
-        # Products Table
+                            name TEXT, email TEXT UNIQUE, password TEXT, 
+                            phone TEXT, address TEXT, is_seller BOOLEAN)''')
+        
         cursor.execute('''CREATE TABLE IF NOT EXISTS products (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             user_id INTEGER, name TEXT, qty INTEGER, price REAL,
                             expiry_date DATE, condition TEXT, is_producer BOOLEAN, address TEXT,
                             waste_prevented_kg REAL DEFAULT 0.0,
                             FOREIGN KEY(user_id) REFERENCES users(user_id))''')
-        # Messages Table
+        
         cursor.execute('''CREATE TABLE IF NOT EXISTS messages (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             sender_id INTEGER, receiver_id INTEGER, message TEXT, timestamp TIMESTAMP)''')
 
-        # Seed Data for Demo
         cursor.execute("SELECT COUNT(*) FROM users")
         if cursor.fetchone()[0] == 0:
             self._seed_data(cursor)
@@ -43,12 +43,13 @@ class LogiflowDB:
         conn.close()
 
     def _seed_data(self, cursor):
+        # Demo users with passwords
         users = [
-            ("Green Valley Farms", "farm@demo.com", "555-0101", "123 Rural Road", 1),
-            ("Urban Market", "market@demo.com", "555-0202", "45 Main St", 1),
-            ("Eco Consumer", "consumer@demo.com", "555-9999", "789 Oak Ave", 0)
+            ("Green Valley Farms", "farm@demo.com", "pass123", "555-0101", "123 Rural Road", 1),
+            ("Urban Market", "market@demo.com", "pass123", "555-0202", "45 Main St", 1),
+            ("Eco Consumer", "consumer@demo.com", "pass123", "555-9999", "789 Oak Ave", 0)
         ]
-        cursor.executemany("INSERT INTO users (name, email, phone, address, is_seller) VALUES (?,?,?,?,?)", users)
+        cursor.executemany("INSERT INTO users (name, email, password, phone, address, is_seller) VALUES (?,?,?,?,?,?)", users)
 
         today = datetime.date.today()
         products = [
@@ -58,19 +59,21 @@ class LogiflowDB:
         ]
         cursor.executemany("INSERT INTO products (user_id, name, qty, price, expiry_date, condition, is_producer, address, waste_prevented_kg) VALUES (?,?,?,?,?,?,?,?,?)", products)
 
-    # --- AUTH ---
-    def login_user(self, email):
+    # --- AUTH METHODS ---
+    def login_user(self, email, password):
         conn = self._get_conn()
-        df = pd.read_sql_query("SELECT * FROM users WHERE email = ?", conn, params=(email,))
+        # Check both email AND password
+        sql = "SELECT * FROM users WHERE email = ? AND password = ?"
+        df = pd.read_sql_query(sql, conn, params=(email, password))
         conn.close()
-        return df.iloc[0] if not df.empty else None
+        return df # Returns a DataFrame
 
-    def register_user(self, name, email, phone, address, is_seller):
+    def register_user(self, name, email, password, phone, address, is_seller):
         conn = self._get_conn()
         cursor = conn.cursor()
         try:
-            cursor.execute("INSERT INTO users (name, email, phone, address, is_seller) VALUES (?,?,?,?,?)",
-                           (name, email, phone, address, is_seller))
+            cursor.execute("INSERT INTO users (name, email, password, phone, address, is_seller) VALUES (?,?,?,?,?,?)",
+                           (name, email, password, phone, address, is_seller))
             conn.commit()
             return True
         except sqlite3.IntegrityError:
@@ -78,7 +81,7 @@ class LogiflowDB:
         finally:
             conn.close()
 
-    # --- PRODUCT LOGIC ---
+    # --- PRODUCT & AI METHODS ---
     def search_products(self, query):
         conn = self._get_conn()
         sql = """SELECT p.*, u.name as seller_name, u.phone as seller_phone, u.user_id as seller_id
@@ -102,21 +105,17 @@ class LogiflowDB:
         conn.close()
 
     def get_impact_metrics(self, user_id):
-        """Calculates sustainability impact for the seller"""
         conn = self._get_conn()
         df = pd.read_sql_query("SELECT SUM(waste_prevented_kg) as total_kg FROM products WHERE user_id = ?", conn, params=(user_id,))
         conn.close()
         return df['total_kg'].iloc[0] if not df.empty and df['total_kg'].iloc[0] is not None else 0.0
 
-    # --- GEMMA 4 AI INSIGHTS ---
     def get_gemma_insights(self, user_id):
-        """Simulates Gemma 4 analyzing inventory patterns"""
         conn = self._get_conn()
         cursor = conn.cursor()
         cursor.execute("SELECT id, name, expiry_date, qty FROM products WHERE user_id = ?", (user_id,))
         rows = cursor.fetchall()
         conn.close()
-
         insights = []
         today = datetime.date.today()
         for r in rows:
@@ -137,7 +136,6 @@ class LogiflowDB:
         conn.commit()
         conn.close()
 
-    # --- CHAT ---
     def send_message(self, sender_id, receiver_id, text):
         conn = self._get_conn()
         cursor = conn.cursor()
@@ -158,7 +156,7 @@ class LogiflowDB:
         return msgs
 
 # ==============================================================================
-# 2. UI ENGINE (PRESENTATION LAYER)
+# 2. UI ENGINE
 # ==============================================================================
 
 class LogiflowUI:
@@ -171,92 +169,77 @@ class LogiflowUI:
     def run(self):
         st.set_page_config(page_title="Logiflow | AI Food Rescue", page_icon="🌿", layout="wide")
         
-        # Sidebar styling
         if st.session_state.user:
-            st.sidebar.title("🌿 Logiflow Bridge")
-            st.sidebar.write(f"**User:** {st.session_state.user['name']}")
-            st.sidebar.caption(f"Role: {'Seller' if st.session_state.user['is_seller'] else 'Consumer'}")
-            if st.sidebar.button("Logout"):
-                st.session_state.user = None
-                st.rerun()
-        
-        if st.session_state.user is None:
-            self.render_auth()
+            self.render_sidebar()
+            if st.session_state.user['is_seller']:
+                self.render_seller_dashboard()
+            else:
+                self.render_consumer_marketplace()
         else:
-            self.render_main_app()
+            self.render_auth()
+
+    def render_sidebar(self):
+        st.sidebar.title("🌿 Logiflow Bridge")
+        st.sidebar.write(f"**User:** {st.session_state.user['name']}")
+        st.sidebar.caption(f"Role: {'Seller' if st.session_state.user['is_seller'] else 'Consumer'}")
+        if st.sidebar.button("Logout"):
+            st.session_state.user = None
+            st.session_state.chat_target = None
+            st.rerun()
 
     def render_auth(self):
         st.title("🌿 Logiflow Bridge")
-        st.subheader("Connecting surplus food to communities through AI Intelligence.")
+        st.subheader("AI-Driven Food Rescue Marketplace")
         
-        tab1, tab2 = st.tabs(["🔑 Login", "📝 Register Account"])
+        tab1, tab2 = st.tabs(["🔑 Login", "📝 Register"])
         
         with tab1:
-            email = st.text_input("Email Address", key="l_email")
+            email = st.text_input("Email", key="l_email")
+            password = st.text_input("Password", type="password", key="l_pass")
             if st.button("Sign In"):
-                user = self.db.login_user(email)
-                if user:
-                    st.session_state.user = user.to_dict()
+                user_df = self.db.login_user(email, password)
+                # FIX: Using .empty instead of if user:
+                if not user_df.empty:
+                    st.session_state.user = user_df.iloc[0].to_dict()
+                    st.success(f"Welcome back, {st.session_state.user['name']}!")
                     st.rerun()
                 else:
-                    st.error("Account not found.")
+                    st.error("Invalid email or password.")
 
         with tab2:
             with st.form("reg_form"):
                 name = st.text_input("Full Name")
                 email = st.text_input("Email")
+                password = st.text_input("Create Password", type="password")
                 phone = st.text_input("Phone Number")
-                addr = st.text_input("Business/Home Address")
+                addr = st.text_input("Address")
                 role = st.selectbox("I am a:", ["Consumer", "Seller/Producer"])
                 if st.form_submit_button("Create Account"):
-                    if name and email:
-                        if self.db.register_user(name, email, phone, addr, role == "Seller/Producer"):
+                    if name and email and password:
+                        if self.db.register_user(name, email, password, phone, addr, role == "Seller/Producer"):
                             st.success("Account created! Please login.")
                         else:
-                            st.error("Email already registered.")
+                            st.error("Email already exists.")
                     else:
                         st.error("Please fill all fields.")
 
-    def render_main_app(self):
-        user = st.session_state.user
-        if user['is_seller']:
-            self.render_seller_dashboard()
-        else:
-            self.render_consumer_marketplace()
-
     def render_consumer_marketplace(self):
         st.title("🛒 Marketplace")
-        st.info("Browse local products and rescue food before it goes to waste!")
-
-        query = st.text_input("🔍 Search for products (e.g., Milk, Avocado, Bread)...")
+        query = st.text_input("🔍 Search products...")
         results = self.db.search_products(query)
 
         if results.empty:
-            st.warning("No items found matching your search.")
+            st.info("No products found.")
         else:
-            # Highlight "Rescue Items" (near expiry)
             for _, row in results.iterrows():
                 with st.container():
                     col1, col2 = st.columns([3, 1])
                     with col1:
-                        try:
-                            days_left = (pd.to_datetime(row['expiry_date']).date() - datetime.date.today()).days
-                            is_rescue = days_left <= 2
-                        except: is_rescue = False
-
-                        if is_rescue:
-                            st.error(f"🚨 RESCUE ITEM: {row['name']}")
-                        else:
-                            st.subheader(f"{row['name']}")
-                        
-                        st.write(f"📍 {row['address']} | 🏪 **{row['seller_name']}**")
-                        if is_rescue:
-                            st.caption("⚠️ High waste risk! Grab this at a special price.")
-                        else:
-                            st.write(f"**Price: ${row['price']:.2f}**")
-                    
+                        st.subheader(row['name'])
+                        st.write(f"📍 {row['address']} | 🏪 {row['seller_name']}")
+                        st.write(f"**Price: ${row['price']:.2f}**")
                     with col2:
-                        if st.button("💬 Chat with Seller", key=f"chat_{row['id']}"):
+                        if st.button("💬 Chat", key=f"chat_{row['id']}"):
                             st.session_state.chat_target = row['seller_id']
                             st.session_state.chat_partner_name = row['seller_name']
                             st.rerun()
@@ -267,22 +250,20 @@ class LogiflowUI:
 
     def render_chat_window(self):
         st.write("---")
-        st.subheader(f"💬 Chat: {st.session_state.chat_partner_name}")
-        
+        st.subheader(f"💬 Chatting with {st.session_state.chat_partner_name}")
         container = st.container(height=300)
         with container:
             msgs = self.db.get_messages(st.session_state.user['user_id'], st.session_state.chat_target)
             for m in msgs:
                 sender = "You" if m[0] == st.session_state.user['user_id'] else "Seller"
-                st.write(f"**{sender}:** {m[1]}  \n<small>{m[2]}</small>", unsafe_allow_html=True)
-
+                st.write(f"**{sender}:** {m[1]}")
+        
         with st.form("chat_form", clear_on_submit=True):
-            msg_text = st.text_input("Write your message...")
+            msg_text = st.text_input("Message...")
             if st.form_submit_button("Send"):
                 if msg_text:
                     self.db.send_message(st.session_state.user['user_id'], st.session_state.chat_target, msg_text)
                     st.rerun()
-        
         if st.button("Close Chat"):
             st.session_state.chat_target = None
             st.rerun()
@@ -291,55 +272,40 @@ class LogiflowUI:
         st.title("🏪 Seller Dashboard")
         user_id = st.session_state.user['user_id']
 
-        # --- TOP METRICS (The "Hackathon Wow" Factor) ---
         m1, m2, m3 = st.columns(3)
         impact = self.db.get_impact_metrics(user_id)
-        with m1:
-            st.metric("Active Products", len(self.db.get_user_products(user_id)))
-        with m2:
-            st.metric("Waste Prevented", f"{impact} kg", delta="Environmental Impact")
-        with m3:
-            st.metric("AI Status", "Active", delta="Gemma 4 Connected")
+        m1.metric("Active Products", len(self.db.get_user_products(user_id)))
+        m2.metric("Waste Prevented", f"{impact} kg")
+        m3.metric("AI Engine", "Gemma 4 Active")
 
-        st.write("---")
-
-        # --- GEMMA 4 AI INSIGHTS ---
         st.subheader("🤖 Gemma 4 Intelligence Insights")
         insights = self.db.get_gemma_insights(user_id)
         if not insights:
-            st.success("Inventory looks stable. No immediate actions needed.")
+            st.success("Inventory is healthy.")
         else:
             for i, ins in enumerate(insights):
                 col1, col2 = st.columns([4, 1])
                 col1.warning(f"**{ins['name']}**: {ins['msg']}")
-                if col2.button("Apply Action", key=f"ai_{i}"):
+                if col2.button("Apply", key=f"ai_{i}"):
                     if ins['type'] == 'DISCOUNT':
                         self.db.apply_discount(ins['id'])
-                        st.toast("Discount applied successfully!")
                         st.rerun()
 
-        st.write("---")
-        tab1, tab2 = st.tabs(["📦 My Inventory", "➕ Add New Product"])
-
+        tab1, tab2 = st.tabs(["📦 Inventory", "➕ Add Product"])
         with tab1:
             st.dataframe(self.db.get_user_products(user_id), use_container_width=True)
-
         with tab2:
             with st.form("new_prod"):
-                name = st.text_input("Product Name")
-                qty = st.number_input("Quantity", min_value=1)
-                price = st.number_input("Price ($)", min_value=0.0)
-                exp = st.date_input("Expiry Date")
-                addr = st.text_input("Store/Farm Address")
-                is_p = st.checkbox("I am a Local Producer")
-                if st.form_submit_button("Publish Product"):
+                name = st.text_input("Name")
+                qty = st.number_input("Qty", min_value=1)
+                price = st.number_input("Price", min_value=0.0)
+                exp = st.date_input("Expiry")
+                addr = st.text_input("Address")
+                is_p = st.checkbox("Local Producer")
+                if st.form_submit_button("Publish"):
                     self.db.register_product(user_id, name, qty, price, exp.isoformat(), "Fresh", is_p, addr)
-                    st.success("Product live on marketplace!")
+                    st.success("Live!")
                     st.rerun()
-
-# ==============================================================================
-# 3. EXECUTION
-# ==============================================================================
 
 if __name__ == "__main__":
     app = LogiflowUI()
