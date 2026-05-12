@@ -10,7 +10,7 @@
 
 [![Gemma 4](https://img.shields.io/badge/AI_Engine-Gemma%204-blue)](https://ai.google.dev/)
 [![Status](https://img.shields.io/badge/Status-MVP_Ready-green)](#)
-[![License](https://img.shields.io/badge/License-MIT-yellow)](#)
+[![License](https://img.shields.io/badge/License-CC-yellow)](#)
 
 ---
 
