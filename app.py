@@ -268,11 +268,15 @@ class LogiflowUI:
 # Patching the engine for the demo
 import pandas as pd
 
-LogiflowEngine.get_products_by_user = lambda self, uid: pd.read_sql_query(
-    sql="SELECT name, qty, price, expiry_date, condition FROM inventory WHERE user_id = ?", 
-    con=self._get_conn(), 
-    params=(uid,)
-)
+def get_products_by_user(self, uid):
+    return pd.read_sql_query(
+        sql="SELECT name, qty, price, expiry_date, condition "
+            "FROM inventory WHERE user_id = ?",
+        con=self._get_conn(),
+        params=(uid,)
+    )
+
+LogiflowEngine.get_products_by_user = get_products_by_user
 
 # ==============================================================================
 # 4. MAIN EXECUTION
