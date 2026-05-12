@@ -14,6 +14,8 @@
 
 ---
 
+https://logiflow.streamlit.app/
+
 ## 📖 Executive Summary
 
 **LogiFlow Bridge** is an AI-driven ecosystem designed to combat global food waste. By connecting producers, retailers, and consumers through a smart, predictive marketplace, we transform potential waste into economic and social value. 
@@ -66,28 +68,22 @@ LogiFlow is designed to scale from a marketplace into a **Global Food Intelligen
 * **🤖 Autonomous AI Agents:** Moving from human-input to agent-driven management. AI agents will handle real-time stock monitoring, automated reordering, and 24/7 intelligent customer service.
 * **🛰️ IoT & Predictive Logistics:** Integrating real-time sensor data to predict supply chain bottlenecks before they occur, moving from *reacting* to waste to *eliminating* it entirely.
 
----
-
 ## ⚙️ Installation & Running (Local)
 
-To run the simulation locally:
-
 1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/reinhardtmarta/LogiFlow.git
-   cd LogiFlow
+```bash
+git clone https://github.com/reinhardtmarta/LogiFlow.git
+cd LogiFlow
+```
 
-  ---
-  Install dependencies:
-
-Bash
+2. **Install dependencies:**
+```bash
 pip install streamlit pandas
+```
 
-Run the App:
-Bash
+3. **Run the App:**
+```bash
 streamlit run app.py
+```
 
-
-ENJOY!
-
-  
+> 🌿 Enjoy LogiFlow!
