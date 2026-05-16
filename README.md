@@ -11,6 +11,7 @@
 [![Gemma 4](https://img.shields.io/badge/AI_Engine-Gemma%204-blue)](https://ai.google.dev/)
 [![Status](https://img.shields.io/badge/Status-MVP_Ready-green)](#)
 [![License](https://img.shields.io/badge/License-CC-yellow)](#)
+<iframe src="https://github.com/sponsors/reinhardtmarta/card" title="Sponsor reinhardtmarta" height="225" width="600" style="border: 0;"></iframe>
 
 ---
 
