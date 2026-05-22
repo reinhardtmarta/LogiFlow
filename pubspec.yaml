@@ -1,0 +1,28 @@
+name: logiflow
+description: Plataforma inteligente contra desperdício de alimentos com IA local (Gemma)
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+  flutter: ">=3.16.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_gemma: ^0.3.0          # Para rodar Gemma 4 localmente
+  path_provider: ^2.1.4
+  image_picker: ^1.1.2
+  camera: ^0.11.0
+  geolocator: ^13.0.1
+  shared_preferences: ^2.3.0
+  uuid: ^4.5.0
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
