@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'core/gemma_service.dart';
 import 'screens/auth/login_screen.dart';
-import 'screens/consumer/marketplace_screen.dart';   // Vamos renomear depois para Feed
-import 'screens/seller/seller_dashboard.dart';
+import 'screens/home/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Inicializa a Gemma 4 (IA local)
   await GemmaService.initialize();
 
   runApp(const LogiFlowApp());
@@ -22,8 +23,15 @@ class LogiFlowApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.green,
         useMaterial3: true,
+        brightness: Brightness.light,
       ),
-      home: const LoginScreen(), // Começa na tela de login
+      darkTheme: ThemeData(
+        primarySwatch: Colors.green,
+        useMaterial3: true,
+        brightness: Brightness.dark,
+      ),
+      themeMode: ThemeMode.system,
+      home: const LoginScreen(),
     );
   }
 }
