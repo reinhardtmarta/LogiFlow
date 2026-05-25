@@ -14,9 +14,24 @@ class GeneralFeedScreen extends StatefulWidget {
 }
 
 class _GeneralFeedScreenState extends State<GeneralFeedScreen> {
-  List<Product> _products = [];
+  List<Product> _allProducts = [];
+  List<Product> _filteredProducts = [];
   String _gemmaInsight = "Loading Gemma insights...";
   bool _isLoading = true;
+
+  // Filtros
+  String? _selectedCategory;
+  final List<String> _categories = [
+    "All",
+    "Fruits & Vegetables",
+    "Dairy",
+    "Bakery",
+    "Meat & Fish",
+    "Grains & Pasta",
+    "Beverages",
+    "Ready Meals",
+    "Other"
+  ];
 
   @override
   void initState() {
@@ -27,24 +42,33 @@ class _GeneralFeedScreenState extends State<GeneralFeedScreen> {
   Future<void> _loadFeed() async {
     final products = await DatabaseHelper.instance.getAllProducts();
     setState(() {
-      _products = products;
+      _allProducts = products;
+      _filteredProducts = products;
       _isLoading = false;
     });
 
     _generateGemmaInsights(products);
   }
 
+  void _applyFilter() {
+    setState(() {
+      if (_selectedCategory == null || _selectedCategory == "All") {
+        _filteredProducts = _allProducts;
+      } else {
+        _filteredProducts = _allProducts
+            .where((p) => p.category == _selectedCategory)
+            .toList();
+      }
+    });
+  }
+
   Future<void> _generateGemmaInsights(List<Product> products) async {
     String prompt = """
-You are LogiFlow AI. Analyze these products and give a short, practical summary:
+You are LogiFlow AI. Give a short and useful summary of these products:
 
 ${products.map((p) => "- \( {p.name} ( \){p.quantity} units, expires ${p.expiryDate.toString().substring(0,10)})").join("\n")}
 
-Include:
-- Urgent items near expiry
-- Promotion ideas
-- Donation opportunities
-- Quick recommendations
+Focus on urgent items, promotion ideas and waste reduction tips.
 """;
 
     final response = await GemmaService.generateResponse(prompt);
@@ -83,32 +107,61 @@ Include:
             ),
           ),
 
-          // Feed de Produtos
+          // Filtros por Categoria
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: SizedBox(
+              height: 50,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _categories.length,
+                itemBuilder: (context, index) {
+                  final cat = _categories[index];
+                  final isSelected = _selectedCategory == cat || (cat == "All" && _selectedCategory == null);
+
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: FilterChip(
+                      label: Text(cat),
+                      selected: isSelected,
+                      onSelected: (selected) {
+                        setState(() {
+                          _selectedCategory = selected ? cat : null;
+                        });
+                        _applyFilter();
+                      },
+                      backgroundColor: Colors.grey[200],
+                      selectedColor: Colors.green[100],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+
+          // Lista de Produtos
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : _products.isEmpty
-                    ? const Center(child: Text("No products available yet"))
+                : _filteredProducts.isEmpty
+                    ? const Center(child: Text("No products found"))
                     : RefreshIndicator(
                         onRefresh: _loadFeed,
                         child: ListView.builder(
                           padding: const EdgeInsets.all(12),
-                          itemCount: _products.length,
+                          itemCount: _filteredProducts.length,
                           itemBuilder: (context, index) {
-                            final product = _products[index];
+                            final product = _filteredProducts[index];
                             final daysLeft = product.expiryDate.difference(DateTime.now()).inDays;
                             final isUrgent = daysLeft <= 3;
 
                             return Card(
                               margin: const EdgeInsets.only(bottom: 16),
                               elevation: 3,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  // Imagem do Produto
                                   if (product.imagePath != null)
                                     ClipRRect(
                                       borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
@@ -116,6 +169,58 @@ Include:
                                         File(product.imagePath!),
                                         height: 180,
                                         width: double.infinity,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    )
+                                  else
+                                    Container(
+                                      height: 180,
+                                      color: Colors.grey[200],
+                                      child: const Icon(Icons.image, size: 60, color: Colors.grey),
+                                    ),
+
+                                  Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Expanded(
+                                              child: Text(product.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                                            ),
+                                            Chip(
+                                              label: Text(product.category),
+                                              backgroundColor: Colors.green[100],
+                                            ),
+                                          ],
+                                        ),
+                                        Text("📍 ${product.address}"),
+                                        Text("📦 ${product.quantity} units"),
+                                        Text("💰 \$${product.price.toStringAsFixed(2)}"),
+                                        Text(
+                                          "Expires in $daysLeft days",
+                                          style: TextStyle(
+                                            color: isUrgent ? Colors.red : Colors.green,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+}                                        width: double.infinity,
                                         fit: BoxFit.cover,
                                         errorBuilder: (context, error, stackTrace) => 
                                             Container(
