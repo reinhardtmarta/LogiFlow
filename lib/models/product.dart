@@ -9,6 +9,7 @@ class Product {
   final bool isProducer;
   final String address;
   final double wastePreventedKg;
+  final String? imagePath;        // ← Novo
 
   Product({
     this.id,
@@ -21,8 +22,10 @@ class Product {
     required this.isProducer,
     required this.address,
     this.wastePreventedKg = 0.0,
+    this.imagePath,               // ← Novo
   });
 
+  // Atualize o toMap e fromMap também
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -35,6 +38,7 @@ class Product {
       'is_producer': isProducer ? 1 : 0,
       'address': address,
       'waste_prevented_kg': wastePreventedKg,
+      'image_path': imagePath,        // ← Novo
     };
   }
 
@@ -50,6 +54,7 @@ class Product {
       isProducer: map['is_producer'] == 1,
       address: map['address'],
       wastePreventedKg: map['waste_prevented_kg'] ?? 0.0,
+      imagePath: map['image_path'],    // ← Novo
     );
   }
 }
