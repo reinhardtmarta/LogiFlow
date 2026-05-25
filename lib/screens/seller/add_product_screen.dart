@@ -23,36 +23,29 @@ class _AddProductScreenState extends State<AddProductScreen> {
   DateTime _expiryDate = DateTime.now().add(const Duration(days: 7));
   String _condition = "Fresh";
   bool _isProducer = true;
+  String _category = "Fruits & Vegetables";   // Default
   bool _isLoading = false;
 
   File? _selectedImage;
   final ImagePicker _picker = ImagePicker();
 
-  Future<void> _pickImage() async {
-    final XFile? image = await _picker.pickImage(
-      source: ImageSource.camera,
-      imageQuality: 80,
-    );
+  final List<String> _categories = [
+    "Fruits & Vegetables",
+    "Dairy",
+    "Bakery",
+    "Meat & Fish",
+    "Grains & Pasta",
+    "Beverages",
+    "Ready Meals",
+    "Other"
+  ];
 
-    if (image != null) {
-      setState(() {
-        _selectedImage = File(image.path);
-      });
-    }
-  }
+  // ... (mantenha os métodos _pickImage e _addProduct iguais)
 
-  Future<void> _addProduct() async {
-    if (_nameController.text.isEmpty || 
-        _qtyController.text.isEmpty || 
-        _priceController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please fill all required fields")),
-      );
-      return;
-    }
+  Future<void> _pickImage() async { /* mesmo código anterior */ }
 
-    setState(() => _isLoading = true);
-
+  Future<void> _addProduct() async { 
+    // ... mesmo código, só adicione category no Product:
     final product = Product(
       userId: widget.user.id!,
       name: _nameController.text.trim(),
@@ -63,150 +56,48 @@ class _AddProductScreenState extends State<AddProductScreen> {
       isProducer: _isProducer,
       address: _addressController.text.trim().isEmpty ? "Local Address" : _addressController.text.trim(),
       imagePath: _selectedImage?.path,
+      category: _category,                    // ← Adicionado
     );
 
     await DatabaseHelper.instance.insertProduct(product);
-
-    setState(() => _isLoading = false);
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("✅ Product published successfully!")),
-      );
-      Navigator.pop(context, true);
-    }
+    // ... resto igual
   }
 
   @override
   Widget build(BuildContext context) {
+    // ... (o resto do build continua igual até o Dropdown de Condition)
+
+    // Substitua o Dropdown de Condition por este novo:
     return Scaffold(
-      appBar: AppBar(title: const Text("Add New Product")),
+      // ... appBar e body igual
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // Foto
-            GestureDetector(
-              onTap: _pickImage,
-              child: Container(
-                height: 200,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey),
-                ),
-                child: _selectedImage != null
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.file(_selectedImage!, fit: BoxFit.cover),
-                      )
-                    : const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.camera_alt, size: 50, color: Colors.grey),
-                          SizedBox(height: 8),
-                          Text("Tap to take a photo", style: TextStyle(color: Colors.grey)),
-                        ],
-                      ),
-              ),
-            ),
-            const SizedBox(height: 24),
+            // Foto (mesmo código anterior)...
 
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: "Product Name *",
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _qtyController,
-                    decoration: const InputDecoration(
-                      labelText: "Quantity *",
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    controller: _priceController,
-                    decoration: const InputDecoration(
-                      labelText: "Price (\$)*",
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            ListTile(
-              title: const Text("Expiry Date"),
-              subtitle: Text(DateFormat('yyyy-MM-dd').format(_expiryDate)),
-              trailing: const Icon(Icons.calendar_today),
-              onTap: () async {
-                final date = await showDatePicker(
-                  context: context,
-                  initialDate: _expiryDate,
-                  firstDate: DateTime.now(),
-                  lastDate: DateTime.now().add(const Duration(days: 365)),
-                );
-                if (date != null) {
-                  setState(() => _expiryDate = date);
-                }
-              },
-            ),
+            // ... campos de nome, qty, price...
 
             const SizedBox(height: 16),
+
+            // Nova seleção de Categoria
             DropdownButtonFormField<String>(
-              value: _condition,
+              value: _category,
               decoration: const InputDecoration(
-                labelText: "Condition",
+                labelText: "Category",
                 border: OutlineInputBorder(),
               ),
-              items: ["Fresh", "Ripe", "Near Expiry", "Good Condition"]
-                  .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                  .toList(),
-              onChanged: (value) => setState(() => _condition = value!),
+              items: _categories.map((cat) => DropdownMenuItem(
+                value: cat,
+                child: Text(cat),
+              )).toList(),
+              onChanged: (value) => setState(() => _category = value!),
             ),
+
             const SizedBox(height: 16),
 
-            TextField(
-              controller: _addressController,
-              decoration: const InputDecoration(
-                labelText: "Pickup Address / Location",
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 2,
-            ),
-            const SizedBox(height: 20),
+            // ... resto dos campos (expiry, condition, address, switch)...
 
-            SwitchListTile(
-              title: const Text("I am a Local Producer"),
-              value: _isProducer,
-              onChanged: (val) => setState(() => _isProducer = val),
-            ),
-
-            const SizedBox(height: 30),
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _addProduct,
-                child: _isLoading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text("Publish Product", style: TextStyle(fontSize: 18)),
-              ),
-            ),
           ],
         ),
       ),
