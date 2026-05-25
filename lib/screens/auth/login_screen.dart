@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../core/database_helper.dart';
 import '../../models/user.dart';
-import '../seller/seller_dashboard.dart';
-import '../consumer/marketplace_screen.dart';
+import '../home/home_screen.dart';
+import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -31,16 +31,17 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => user.isSeller 
-                ? SellerDashboard(user: user) 
-                : MarketplaceScreen(user: user),
+            builder: (context) => HomeScreen(user: user),
           ),
         );
       }
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Invalid email or password")),
+          const SnackBar(
+            content: Text("Invalid email or password"),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -49,54 +50,74 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("LogiFlow")),
       body: Padding(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Icon(Icons.eco, size: 80, color: Colors.green),
+            const Icon(Icons.eco, size: 100, color: Colors.green),
+            const SizedBox(height: 16),
             const Text(
               "LogiFlow",
-              style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 36,
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
             ),
-            const Text("AI-Driven Food Rescue", style: TextStyle(fontSize: 16)),
-            const SizedBox(height: 40),
+            const Text(
+              "AI-Driven Food Rescue",
+              style: TextStyle(fontSize: 18, color: Colors.grey),
+            ),
+            const SizedBox(height: 50),
 
             TextField(
               controller: _emailController,
               decoration: const InputDecoration(
                 labelText: "Email",
                 border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.email),
               ),
               keyboardType: TextInputType.emailAddress,
             ),
             const SizedBox(height: 16),
+
             TextField(
               controller: _passwordController,
               decoration: const InputDecoration(
                 labelText: "Password",
                 border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.lock),
               ),
               obscureText: true,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 30),
 
             SizedBox(
               width: double.infinity,
-              height: 50,
+              height: 56,
               child: ElevatedButton(
                 onPressed: _isLoading ? null : _login,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                ),
                 child: _isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text("Login"),
+                    : const Text("Login", style: TextStyle(fontSize: 18)),
               ),
             ),
+
+            const SizedBox(height: 16),
             TextButton(
               onPressed: () {
-                // Navegar para Register (vamos criar depois)
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const RegisterScreen()),
+                );
               },
-              child: const Text("Don't have an account? Register"),
+              child: const Text("Don't have an account? Create one"),
             ),
           ],
         ),
