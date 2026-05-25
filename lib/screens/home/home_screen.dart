@@ -4,6 +4,7 @@ import '../feed/general_feed_screen.dart';
 import '../search/search_screen.dart';
 import '../seller/seller_dashboard.dart';
 import '../consumer/marketplace_screen.dart';
+import '../ai/ai_assistant_screen.dart';     // ← Nova
 
 class HomeScreen extends StatefulWidget {
   final User user;
@@ -23,11 +24,12 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     
     _screens = [
-      GeneralFeedScreen(user: widget.user),           // Home - Feed Principal
-      const SearchScreen(),                           // Pesquisa
+      GeneralFeedScreen(user: widget.user),           // Home Feed
+      const SearchScreen(),                           // Search
       widget.user.isSeller 
           ? SellerDashboard(user: widget.user) 
-          : MarketplaceScreen(user: widget.user),     // Meu Dashboard
+          : MarketplaceScreen(user: widget.user),     // My Dashboard
+      AiAssistantScreen(user: widget.user),           // ← Nova: Ask Gemma
     ];
   }
 
@@ -43,7 +45,7 @@ class _HomeScreenState extends State<HomeScreen> {
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home),
-            label: 'Home',
+            label: 'Feed',
           ),
           NavigationDestination(
             icon: Icon(Icons.search),
@@ -52,6 +54,10 @@ class _HomeScreenState extends State<HomeScreen> {
           NavigationDestination(
             icon: Icon(Icons.dashboard),
             label: 'My Space',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.psychology),
+            label: 'Gemma AI',
           ),
         ],
       ),
