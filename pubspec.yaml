@@ -25,8 +25,8 @@ dependencies:
   # Media
   image_picker: ^1.1.2
 
-  # AI (Gemma on-device)
-  flutter_gemma: ^0.2.4
+  # AI (Google Generative AI - Gemini/Gemma)
+  google_generative_ai: ^0.4.8
 
   # Optional but recommended for icons later
   # flutter_launcher_icons: ^0.13.1
