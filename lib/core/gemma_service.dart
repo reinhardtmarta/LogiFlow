@@ -1,43 +1,28 @@
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 
 class GemmaService {
-  static final FlutterGemma _gemma = FlutterGemma();
+  static final String _apiKey = const String.fromEnvironment('GEMINI_API_KEY', defaultValue: '');
+  static late GenerativeModel _model;
   static bool isInitialized = false;
 
-  /// Initialize Gemma 4 (E2B - efficient version for mobile)
+  /// Initialize Gemma 4 using Google Generative AI
   static Future<void> initialize() async {
     if (isInitialized) return;
 
     try {
-      final dir = await getApplicationDocumentsDirectory();
-      final modelDir = Directory('${dir.path}/models');
-      if (!await modelDir.exists()) {
-        await modelDir.create(recursive: true);
+      if (_apiKey.isEmpty) {
+        throw Exception('GEMINI_API_KEY environment variable not set');
       }
 
-      final modelPath = '${modelDir.path}/gemma-4-E2B-it.litertlm';
-
-      // Download model if not exists (only once)
-      if (!await File(modelPath).exists()) {
-        print("Downloading Gemma 4 model... (this may take a while)");
-
-        await _gemma.downloadModel(
-          modelUrl:
-              'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm',
-          savePath: modelPath,
-          onProgress: (progress) {
-            print(
-                "Download progress: ${(progress * 100).toStringAsFixed(1)}%");
-          },
-        );
-      }
-
-      await _gemma.loadModel(modelPath);
+      _model = GenerativeModel(
+        model: 'gemini-1.5-flash', // Efficient model for mobile
+        apiKey: _apiKey,
+      );
 
       isInitialized = true;
-      print("✅ Gemma 4 loaded successfully!");
+      print("✅ Gemma 4 (Gemini) loaded successfully!");
     } catch (e) {
       print("❌ Error initializing Gemma: $e");
       rethrow;
@@ -54,20 +39,32 @@ class GemmaService {
     }
 
     try {
-      final response = await _gemma.generate(
-        prompt,
-        imagePath: imagePath,
-        maxTokens: 800,
-        temperature: 0.75,
-      );
+      final content = <Content>[];
 
-      return response.text.trim();
+      // Add text prompt
+      content.add(Content.text(prompt));
+
+      // Add image if provided
+      if (imagePath != null && await File(imagePath).exists()) {
+        final imageBytes = await File(imagePath).readAsBytes();
+        content.add(
+          Content.multi([
+            TextPart(prompt),
+            DataPart('image/jpeg', imageBytes),
+          ]),
+        );
+      }
+
+      final response = await _model.generateContent(content);
+
+      return response.text?.trim() ?? "No response generated";
     } catch (e) {
       return "Sorry, I couldn't generate a response right now. Error: $e";
     }
   }
 
   static Future<void> dispose() async {
-    await _gemma.dispose();
+    // Cleanup if needed
+    isInitialized = false;
   }
 }
