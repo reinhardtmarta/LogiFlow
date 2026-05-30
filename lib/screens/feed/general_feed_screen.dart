@@ -62,7 +62,7 @@ class _GeneralFeedScreenState extends State<GeneralFeedScreen> {
                       trailing: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text("
+                          Text("$days days left", style: const TextStyle(fontWeight: FontWeight.bold)),
                           if (isUrgent) const Text("RESCUE", style: TextStyle(color: Colors.red, fontSize: 11, fontWeight: FontWeight.bold)),
                         ],
                       ),

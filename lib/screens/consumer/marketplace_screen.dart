@@ -69,11 +69,11 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
                             margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             child: ListTile(
                               title: Text(product.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                              subtitle: Text("
+                              subtitle: Text("Expires in $daysLeft days • \$${product.price.toStringAsFixed(2)}"),
                               trailing: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Text("
+                                  Text("\$${product.price.toStringAsFixed(2)}", style: const TextStyle(fontWeight: FontWeight.bold)),
                                   if (isRescue) const Icon(Icons.warning, color: Colors.red, size: 18),
                                 ],
                               ),

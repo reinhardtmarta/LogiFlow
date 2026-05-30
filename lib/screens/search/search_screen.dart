@@ -62,7 +62,7 @@ class _SearchScreenState extends State<SearchScreen> {
                           return ListTile(
                             title: Text(p.name),
                             subtitle: Text("${p.quantity} units • Expires: ${p.expiryDate.toString().substring(0,10)}"),
-                            trailing: Text("
+                            trailing: Text("\$${p.price.toStringAsFixed(2)}", style: const TextStyle(fontWeight: FontWeight.bold)),
                             onTap: user == null
                                 ? null
                                 : () => Navigator.push(
