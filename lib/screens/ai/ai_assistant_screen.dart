@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/gemma_service.dart';
 import '../../models/user.dart';
-import '../../models/product.dart';
 import '../../core/database_helper.dart';
 
 class AiAssistantScreen extends StatefulWidget {
@@ -14,43 +13,18 @@ class AiAssistantScreen extends StatefulWidget {
 
 class _AiAssistantScreenState extends State<AiAssistantScreen> {
   final TextEditingController _promptController = TextEditingController();
-  String _response = "Ask me anything about your products, promotions, donations, or waste reduction.";
+  String _response = "Ask anything about reducing food waste, promotions, or stock management.\n\nGemma 4 will give you smart suggestions (may download model on first use ~1-2GB).";
   bool _isThinking = false;
-  List<Product> _userProducts = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadUserProducts();
-  }
-
-  Future<void> _loadUserProducts() async {
-    final products = await DatabaseHelper.instance.getUserProducts(widget.user.id!);
-    setState(() => _userProducts = products);
-  }
 
   Future<void> _askGemma() async {
-    if (_promptController.text.trim().isEmpty) return;
+    final q = _promptController.text.trim();
+    if (q.isEmpty) return;
 
     setState(() => _isThinking = true);
 
-    String context = _userProducts.isNotEmpty 
-        ? "My current products: \( {_userProducts.map((p) => " \){p.name} (${p.quantity} units, expires ${p.expiryDate.toString().substring(0,10)})").join(", ")}."
-        : "I have no products registered yet.";
+    final prompt = "You are LogiFlow AI helping reduce food waste.\nUser role: ${widget.user.isSeller ? 'Seller' : 'Consumer'}.\nQuestion: $q\nGive practical advice in 2-4 sentences.";
 
-    String fullPrompt = """
-You are LogiFlow AI, a helpful assistant specialized in reducing food waste.
-User: ${widget.user.name}
-Role: ${widget.user.isSeller ? "Seller/Producer" : "Consumer"}
-
-Context: $context
-
-Question: ${_promptController.text}
-
-Give a practical, kind and useful answer in English.
-""";
-
-    final result = await GemmaService.generateResponse(fullPrompt);
+    final result = await GemmaService.generateResponse(prompt);
 
     setState(() {
       _response = result;
@@ -62,7 +36,7 @@ Give a practical, kind and useful answer in English.
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Ask Gemma 4"),
+        title: const Text("Gemma AI Assistant"),
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
       ),
@@ -70,62 +44,35 @@ Give a practical, kind and useful answer in English.
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            const Row(
-              children: [
-                Icon(Icons.psychology, color: Colors.green, size: 28),
-                SizedBox(width: 10),
-                Text(
-                  "Talk to Gemma",
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-              ],
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(_response, style: const TextStyle(fontSize: 16)),
             ),
-            const Text("Get smart suggestions about your products"),
-            const SizedBox(height: 20),
-
-            // Área de Resposta
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.green[50],
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.green.shade200),
-                ),
-                child: SingleChildScrollView(
-                  child: Text(_response, style: const TextStyle(fontSize: 16)),
-                ),
+            const Spacer(),
+            TextField(
+              controller: _promptController,
+              decoration: const InputDecoration(
+                hintText: "What should I do with near-expiry milk?",
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isThinking ? null : _askGemma,
+                icon: const Icon(Icons.psychology),
+                label: Text(_isThinking ? "Thinking with Gemma..." : "Ask Gemma 4"),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
               ),
             ),
-
-            const SizedBox(height: 16),
-
-            // Input
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _promptController,
-                    decoration: const InputDecoration(
-                      hintText: "Ex: What should I promote today? Which items are near expiry?",
-                      border: OutlineInputBorder(),
-                    ),
-                    maxLines: 2,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.send, color: Colors.green, size: 32),
-                  onPressed: _isThinking ? null : _askGemma,
-                ),
-              ],
-            ),
-
             const SizedBox(height: 8),
-            const Text(
-              "Examples: \"Suggest discounts\", \"Which products to donate?\", \"Stock advice\"",
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
+            const Text("Tip: Gemma may download a model on first use.", style: TextStyle(fontSize: 12, color: Colors.grey)),
           ],
         ),
       ),

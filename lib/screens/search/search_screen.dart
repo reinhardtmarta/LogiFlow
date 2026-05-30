@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../core/database_helper.dart';
 import '../../models/product.dart';
+import '../chat/chat_screen.dart';
+import '../../models/user.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -10,74 +12,74 @@ class SearchScreen extends StatefulWidget {
 }
 
 class _SearchScreenState extends State<SearchScreen> {
-  final TextEditingController _searchController = TextEditingController();
-  List<Product> _searchResults = [];
-  bool _isSearching = false;
+  List<Product> _results = [];
+  final _controller = TextEditingController();
+  bool _loading = false;
 
-  Future<void> _performSearch(String query) async {
-    if (query.isEmpty) {
-      setState(() => _searchResults = []);
+  Future<void> _search(String query) async {
+    if (query.trim().isEmpty) {
+      setState(() => _results = []);
       return;
     }
-
-    setState(() => _isSearching = true);
-
-    final allProducts = await DatabaseHelper.instance.getAllProducts();
-    final results = allProducts.where((p) =>
-        p.name.toLowerCase().contains(query.toLowerCase())).toList();
-
+    setState(() => _loading = true);
+    final all = await DatabaseHelper.instance.getAllProducts();
+    final filtered = all.where((p) => p.name.toLowerCase().contains(query.toLowerCase())).toList();
     setState(() {
-      _searchResults = results;
-      _isSearching = false;
+      _results = filtered;
+      _loading = false;
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = ModalRoute.of(context)?.settings.arguments as User?;
+
     return Scaffold(
-      appBar: AppBar(title: const Text("Search Products")),
-      body: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                labelText: "Search by product name...",
-                prefixIcon: const Icon(Icons.search),
-                border: const OutlineInputBorder(),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: () {
-                    _searchController.clear();
-                    setState(() => _searchResults = []);
-                  },
-                ),
+      appBar: AppBar(title: const Text("Search Rescue Items")),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: TextField(
+              controller: _controller,
+              decoration: const InputDecoration(
+                hintText: "Search milk, bread, avocado...",
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
               ),
-              onChanged: _performSearch,
+              onChanged: _search,
             ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: _isSearching
-                  ? const Center(child: CircularProgressIndicator())
-                  : _searchResults.isEmpty
-                      ? const Center(child: Text("No results found"))
-                      : ListView.builder(
-                          itemCount: _searchResults.length,
-                          itemBuilder: (context, index) {
-                            final p = _searchResults[index];
-                            return Card(
-                              child: ListTile(
-                                title: Text(p.name),
-                                subtitle: Text("${p.quantity} units • Expires ${p.expiryDate.toString().substring(0,10)}"),
-                                trailing: Text("\ \]{p.price}"),
-                              ),
-                            );
-                          },
-                        ),
-            ),
-          ],
-        ),
+          ),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _results.isEmpty
+                    ? const Center(child: Text("No results. Try another search."))
+                    : ListView.builder(
+                        itemCount: _results.length,
+                        itemBuilder: (context, i) {
+                          final p = _results[i];
+                          return ListTile(
+                            title: Text(p.name),
+                            subtitle: Text("${p.quantity} units • Expires: ${p.expiryDate.toString().substring(0,10)}"),
+                            trailing: Text("
+                            onTap: user == null
+                                ? null
+                                : () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => ChatScreen(
+                                          currentUser: user,
+                                          receiverId: p.userId,
+                                          receiverName: "Seller",
+                                        ),
+                                      ),
+                                    ),
+                          );
+                        },
+                      ),
+          ),
+        ],
       ),
     );
   }
