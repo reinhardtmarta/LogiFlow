@@ -188,7 +188,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
             ListTile(
               title: const Text("Expiry Date"),
-              subtitle: Text("
+              subtitle: Text(_expiryDate.toString().substring(0, 10)),
               trailing: IconButton(
                 icon: const Icon(Icons.calendar_today),
                 onPressed: () async {

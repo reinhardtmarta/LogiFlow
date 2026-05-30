@@ -34,7 +34,7 @@ class _SellerDashboardState extends State<SellerDashboard> {
   }
 
   Future<void> _generateGemmaAnalysis(List<Product> products) async {
-    String prompt = "Act as LogiFlow AI. Products: ${products.map((p) => '${p.name} (${p.quantity} units, expires ${p.expiryDate.toString().substring(0,10)})').join(', ')}. Give 2-3 practical waste reduction tips.";
+    String prompt = "Act as LogiFlow AI. Products: ${products.map((p) => '${p.name} (${p.quantity} units, expires ${p.expiryDate.toString().substring(0,10)})').join(', ')}. Give 2-3 practical wast[...]";
     final response = await GemmaService.generateResponse(prompt);
     if (mounted) setState(() => _gemmaInsight = response);
   }
@@ -62,8 +62,10 @@ class _SellerDashboardState extends State<SellerDashboard> {
                     Card(
                       child: Padding(
                         padding: const EdgeInsets.all(16),
-                        child: Text("Welcome back, ${widget.user.name}!
-Manage your inventory and reduce waste.", style: const TextStyle(fontSize: 16)),
+                        child: Text(
+                          "Welcome back, ${widget.user.name}!\nManage your inventory and reduce waste.",
+                          style: const TextStyle(fontSize: 16),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 20),
