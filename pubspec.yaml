@@ -27,7 +27,6 @@ dependencies:
 
   # AI (Gemma on-device)
   flutter_gemma: ^0.2.4
-  flutter pub add flutter_gemma:^0.2.4
 
   # Optional but recommended for icons later
   # flutter_launcher_icons: ^0.13.1
