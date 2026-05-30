@@ -15,7 +15,7 @@ class SellerDashboard extends StatefulWidget {
 
 class _SellerDashboardState extends State<SellerDashboard> {
   List<Product> _products = [];
-  String _gemmaInsight = "Loading Gemma insights...";
+  String _gemmaInsight = "Loading smart suggestions from Gemma...";
   bool _isLoading = true;
 
   @override
@@ -30,29 +30,13 @@ class _SellerDashboardState extends State<SellerDashboard> {
       _products = products;
       _isLoading = false;
     });
-
     _generateGemmaAnalysis(products);
   }
 
   Future<void> _generateGemmaAnalysis(List<Product> products) async {
-    String prompt = """
-Act as LogiFlow AI Assistant for a seller.
-
-Products:
-${products.map((p) => "- ${p.name} | Qty: ${p.quantity} | Expires: ${p.expiryDate.toString().substring(0,10)} | Price: \\[ {p.price}").join("\n")}
-
-Give a practical and useful summary in English including:
-- Items near expiry (urgent action needed)
-- Promotion or discount suggestions
-- Donation opportunities
-- Stock control feedback
-- General recommendations to reduce waste
-""";
-
+    String prompt = "Act as LogiFlow AI. Products: ${products.map((p) => '${p.name} (${p.quantity} units, expires ${p.expiryDate.toString().substring(0,10)})').join(', ')}. Give 2-3 practical waste reduction tips.";
     final response = await GemmaService.generateResponse(prompt);
-    if (mounted) {
-      setState(() => _gemmaInsight = response);
-    }
+    if (mounted) setState(() => _gemmaInsight = response);
   }
 
   @override
@@ -63,14 +47,7 @@ Give a practical and useful summary in English including:
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadData,
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
-          ),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData),
         ],
       ),
       body: _isLoading
@@ -82,38 +59,21 @@ Give a practical and useful summary in English including:
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Welcome Card
                     Card(
                       child: Padding(
                         padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text("Welcome back, ${widget.user.name}!",
-                                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 4),
-                            Text("Manage your products and reduce waste"),
-                          ],
-                        ),
+                        child: Text("Welcome back, ${widget.user.name}!
+Manage your inventory and reduce waste.", style: const TextStyle(fontSize: 16)),
                       ),
                     ),
-
                     const SizedBox(height: 20),
-
-                    // Gemma AI Insights
-                    const Text("🤖 Gemma 4 Intelligence", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const Text("Gemma 4 Intelligence", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
                     Card(
                       color: Colors.green[50],
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Text(_gemmaInsight, style: const TextStyle(fontSize: 15)),
-                      ),
+                      child: Padding(padding: const EdgeInsets.all(16), child: Text(_gemmaInsight)),
                     ),
-
                     const SizedBox(height: 24),
-
-                    // My Products
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -122,38 +82,21 @@ Give a practical and useful summary in English including:
                       ],
                     ),
                     const SizedBox(height: 12),
-
                     if (_products.isEmpty)
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(40),
-                          child: Text("You haven't added any products yet."),
-                        ),
-                      )
+                      const Center(child: Padding(padding: EdgeInsets.all(40), child: Text("No products yet. Tap + to add.")))
                     else
                       ListView.builder(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
                         itemCount: _products.length,
                         itemBuilder: (context, index) {
-                          final product = _products[index];
-                          final daysLeft = product.expiryDate.difference(DateTime.now()).inDays;
-
+                          final p = _products[index];
+                          final days = p.expiryDate.difference(DateTime.now()).inDays;
                           return Card(
-                            margin: const EdgeInsets.only(bottom: 12),
                             child: ListTile(
-                              title: Text(product.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                              subtitle: Text(
-                                "${product.quantity} units • Expires in $daysLeft days",
-                              ),
-                              trailing: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text("\ \]{product.price.toStringAsFixed(2)}"),
-                                  if (daysLeft <= 5)
-                                    const Icon(Icons.warning_amber, color: Colors.red, size: 20),
-                                ],
-                              ),
+                              title: Text(p.name),
+                              subtitle: Text("${p.quantity} units • Expires in $days days"),
+                              trailing: days <= 5 ? const Icon(Icons.warning_amber, color: Colors.red) : null,
                             ),
                           );
                         },
@@ -166,9 +109,7 @@ Give a practical and useful summary in English including:
         onPressed: () async {
           final result = await Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (context) => AddProductScreen(user: widget.user),
-            ),
+            MaterialPageRoute(builder: (_) => AddProductScreen(user: widget.user)),
           );
           if (result == true) _loadData();
         },

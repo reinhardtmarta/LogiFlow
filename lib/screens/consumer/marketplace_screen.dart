@@ -35,13 +35,9 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Marketplace"),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
-          ),
-        ],
+        title: const Text("Marketplace - Rescue Food"),
+        backgroundColor: Colors.green,
+        foregroundColor: Colors.white,
       ),
       body: Column(
         children: [
@@ -66,33 +62,29 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
                         itemCount: _products.length,
                         itemBuilder: (context, index) {
                           final product = _products[index];
+                          final daysLeft = product.expiryDate.difference(DateTime.now()).inDays;
+                          final isRescue = daysLeft <= 3;
+
                           return Card(
                             margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             child: ListTile(
                               title: Text(product.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text("📍 ${product.address}"),
-                                  Text("Expires: ${product.expiryDate.toString().substring(0, 10)}"),
-                                ],
-                              ),
+                              subtitle: Text("
                               trailing: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Text("\$${product.price.toStringAsFixed(2)}",
-                                      style: const TextStyle(fontWeight: FontWeight.bold)),
-                                  Text("${product.quantity} units"),
+                                  Text("
+                                  if (isRescue) const Icon(Icons.warning, color: Colors.red, size: 18),
                                 ],
                               ),
                               onTap: () {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => ChatScreen(
+                                    builder: (_) => ChatScreen(
                                       currentUser: widget.user,
                                       receiverId: product.userId,
-                                      receiverName: "Seller ${product.userId}",
+                                      receiverName: "Seller",
                                     ),
                                   ),
                                 );
