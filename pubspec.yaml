@@ -1,11 +1,51 @@
+name: logiflow
+description: "LogiFlow - AI-Driven Food Rescue Marketplace"
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+
 dependencies:
   flutter:
     sdk: flutter
-  flutter_gemma: ^0.16.0
+
+  # Core
   sqflite: ^2.3.3
   path: ^1.9.0
   path_provider: ^2.1.4
-  image_picker: ^1.1.2      # ← Nova
   shared_preferences: ^2.3.0
-  uuid: ^4.5.0
   intl: ^0.19.0
+  uuid: ^4.5.0
+
+  # Media
+  image_picker: ^1.1.2
+
+  # AI (Gemma on-device)
+  flutter_gemma: ^0.16.0
+
+  # Optional but recommended for icons later
+  # flutter_launcher_icons: ^0.13.1
+
+  # For better state management in future
+  # provider: ^6.1.2
+
+  # Networking (if you later connect to backend)
+  # http: ^1.2.0
+
+  # Maps (future)
+  # google_maps_flutter: ^2.5.0
+
+  # Charts (impact dashboard)
+  # fl_chart: ^0.68.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+  # flutter_launcher_icons: ^0.13.1

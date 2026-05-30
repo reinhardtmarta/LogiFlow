@@ -4,7 +4,7 @@ import '../feed/general_feed_screen.dart';
 import '../search/search_screen.dart';
 import '../seller/seller_dashboard.dart';
 import '../consumer/marketplace_screen.dart';
-import '../ai/ai_assistant_screen.dart';     // ← Nova
+import '../ai/ai_assistant_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final User user;
@@ -24,12 +24,12 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     
     _screens = [
-      GeneralFeedScreen(user: widget.user),           // Home Feed
-      const SearchScreen(),                           // Search
+      GeneralFeedScreen(user: widget.user),
+      const SearchScreen(),
       widget.user.isSeller 
           ? SellerDashboard(user: widget.user) 
-          : MarketplaceScreen(user: widget.user),     // My Dashboard
-      AiAssistantScreen(user: widget.user),           // ← Nova: Ask Gemma
+          : MarketplaceScreen(user: widget.user),
+      AiAssistantScreen(user: widget.user),
     ];
   }
 
