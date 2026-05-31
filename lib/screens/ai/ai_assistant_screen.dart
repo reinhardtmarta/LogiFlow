@@ -12,8 +12,25 @@ class AiAssistantScreen extends StatefulWidget {
 
 class _AiAssistantScreenState extends State<AiAssistantScreen> {
   final TextEditingController _promptController = TextEditingController();
-  String _response = "Ask anything about reducing food waste, promotions, or stock management.\n\nPowered by Gemma 4 via Google AI.";
+  String _response = "Powered by Gemma 4 via Google AI.\nAsk anything about reducing food waste, promotions, or stock management.";
   bool _isThinking = false;
+  bool _isInitializing = true; // 👈 novo
+
+  @override
+  void initState() {
+    super.initState();
+    _initGemma(); // 👈 chama ao abrir a tela
+  }
+
+  Future<void> _initGemma() async {
+    try {
+      await GemmaService.initialize();
+    } catch (e) {
+      setState(() => _response = "❌ Failed to initialize Gemma 4: $e");
+    } finally {
+      setState(() => _isInitializing = false);
+    }
+  }
 
   Future<void> _askGemma() async {
     final q = _promptController.text.trim();
@@ -29,6 +46,13 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       _response = result;
       _isThinking = false;
     });
+  }
+
+  @override
+  void dispose() {
+    _promptController.dispose();
+    GemmaService.dispose();
+    super.dispose();
   }
 
   @override
@@ -49,7 +73,13 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                 color: Colors.green.shade50,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Text(_response, style: const TextStyle(fontSize: 16)),
+              child: _isInitializing
+                  ? const Row(children: [
+                      CircularProgressIndicator(strokeWidth: 2),
+                      SizedBox(width: 12),
+                      Text("Loading Gemma 4..."),
+                    ])
+                  : Text(_response, style: const TextStyle(fontSize: 16)),
             ),
             const Spacer(),
             TextField(
@@ -64,14 +94,20 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: _isThinking ? null : _askGemma,
+                onPressed: (_isThinking || _isInitializing) ? null : _askGemma,
                 icon: const Icon(Icons.psychology),
-                label: Text(_isThinking ? "Thinking with Gemma 4..." : "Ask Gemma 4"),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+                label: Text(_isInitializing
+                    ? "Loading Gemma 4..."
+                    : _isThinking
+                        ? "Thinking with Gemma 4..."
+                        : "Ask Gemma 4"),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green, foregroundColor: Colors.white),
               ),
             ),
             const SizedBox(height: 8),
-            const Text("Powered by Gemma 4 via Google AI", style: TextStyle(fontSize: 12, color: Colors.grey)),
+            const Text("Powered by Gemma 4 via Google AI",
+                style: TextStyle(fontSize: 12, color: Colors.grey)),
           ],
         ),
       ),
