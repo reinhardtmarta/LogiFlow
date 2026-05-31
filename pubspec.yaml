@@ -27,6 +27,7 @@ dependencies:
 
   # AI (Google Generative AI - Gemini/Gemma)
   google_generative_ai: ^0.4.7
+  http: ^1.2.0  
 
   # Optional but recommended for icons later
   # flutter_launcher_icons: ^0.13.1
