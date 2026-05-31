@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/gemma_service.dart';
 import '../../models/user.dart';
-import '../../core/database_helper.dart';
 
 class AiAssistantScreen extends StatefulWidget {
   final User user;
@@ -13,7 +12,7 @@ class AiAssistantScreen extends StatefulWidget {
 
 class _AiAssistantScreenState extends State<AiAssistantScreen> {
   final TextEditingController _promptController = TextEditingController();
-  String _response = "Ask anything about reducing food waste, promotions, or stock management.\n\nGemma 4 will give you smart suggestions (may download model on first use ~1-2GB).";
+  String _response = "Ask anything about reducing food waste, promotions, or stock management.\n\nPowered by Gemma 4 via Google AI.";
   bool _isThinking = false;
 
   Future<void> _askGemma() async {
@@ -36,7 +35,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Gemma AI Assistant"),
+        title: const Text("Gemma 4 AI Assistant"),
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
       ),
@@ -67,12 +66,12 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               child: ElevatedButton.icon(
                 onPressed: _isThinking ? null : _askGemma,
                 icon: const Icon(Icons.psychology),
-                label: Text(_isThinking ? "Thinking with Gemma..." : "Ask Gemma 4"),
+                label: Text(_isThinking ? "Thinking with Gemma 4..." : "Ask Gemma 4"),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
               ),
             ),
             const SizedBox(height: 8),
-            const Text("Tip: Gemma may download a model on first use.", style: TextStyle(fontSize: 12, color: Colors.grey)),
+            const Text("Powered by Gemma 4 via Google AI", style: TextStyle(fontSize: 12, color: Colors.grey)),
           ],
         ),
       ),
