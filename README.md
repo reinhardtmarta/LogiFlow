@@ -11,7 +11,8 @@
 [![Gemma 4](https://img.shields.io/badge/AI_Engine-Gemma%204-blue)](https://ai.google.dev/)
 [![Status](https://img.shields.io/badge/Status-MVP_Ready-green)](#)
 [![License](https://img.shields.io/badge/License-CC-yellow)](#)
-
+[![Download](https://img.shields.io/github/v/release/reinhardtmarta/LogiFlow)
+](https://github.com/reinhardtmarta/LogiFlow/releases/latest)
 ---
 
 https://logiflow.streamlit.app/
