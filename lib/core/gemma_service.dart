@@ -1,5 +1,4 @@
 import 'package:google_generative_ai/google_generative_ai.dart';
-import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 
 class GemmaService {
@@ -7,7 +6,6 @@ class GemmaService {
   static late GenerativeModel _model;
   static bool isInitialized = false;
 
-  /// Initialize Gemma 4 using Google Generative AI
   static Future<void> initialize() async {
     if (isInitialized) return;
 
@@ -17,46 +15,35 @@ class GemmaService {
       }
 
       _model = GenerativeModel(
-        model: 'gemini-1.5-flash', // Efficient model for mobile
+        model: 'gemma-4-26b-a4b-it',
         apiKey: _apiKey,
       );
 
       isInitialized = true;
-      print("✅ Gemma 4 (Gemini) loaded successfully!");
+      print("✅ Gemma 4 loaded successfully!");
     } catch (e) {
-      print("❌ Error initializing Gemma: $e");
+      print("❌ Error initializing Gemma 4: $e");
       rethrow;
     }
   }
 
-  /// Send message to Gemma 4 (with optional image support)
-  static Future<String> generateResponse(
-    String prompt, {
-    String? imagePath, // For multimodal (photo of product)
-  }) async {
-    if (!isInitialized) {
-      return "Gemma is still loading. Please wait a moment...";
-    }
+  static Future<String> generateResponse(String prompt, {String? imagePath}) async {
+    if (!isInitialized) return "Gemma 4 is still loading. Please wait...";
 
     try {
       final content = <Content>[];
 
-      // Add text prompt
-      content.add(Content.text(prompt));
-
-      // Add image if provided
       if (imagePath != null && await File(imagePath).exists()) {
         final imageBytes = await File(imagePath).readAsBytes();
-        content.add(
-          Content.multi([
-            TextPart(prompt),
-            DataPart('image/jpeg', imageBytes),
-          ]),
-        );
+        content.add(Content.multi([
+          TextPart(prompt),
+          DataPart('image/jpeg', imageBytes),
+        ]));
+      } else {
+        content.add(Content.text(prompt));
       }
 
       final response = await _model.generateContent(content);
-
       return response.text?.trim() ?? "No response generated";
     } catch (e) {
       return "Sorry, I couldn't generate a response right now. Error: $e";
@@ -64,7 +51,6 @@ class GemmaService {
   }
 
   static Future<void> dispose() async {
-    // Cleanup if needed
     isInitialized = false;
   }
 }
