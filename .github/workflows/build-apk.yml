@@ -23,7 +23,7 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.44.0'  # Stable version
+          flutter-version: '3.44.0'
           channel: 'stable'
 
       - name: Install dependencies
@@ -39,19 +39,10 @@ jobs:
       - name: Build Release APK
         run: flutter build apk --release
 
+      - name: Rename APK
+        run: mv build/app/outputs/flutter-apk/app-release.apk LogiFlow-v${{ github.run_number }}.apk
+
       - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: logiflow-android-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
-          retention-days: 30
-
-      - name: Rename APK for release
-        run: |
-          mv build/app/outputs/flutter-apk/app-release.apk LogiFlow-v${{ github.run_number }}.apk
-
-      - name: Upload APK as Release Asset (on push to main)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: LogiFlow-Android-APK
