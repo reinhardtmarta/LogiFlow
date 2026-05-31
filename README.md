@@ -85,5 +85,5 @@ pip install streamlit pandas
 ```bash
 streamlit run app.py
 ```
-
+Or make the download in apk to Android in the realease version 1
 > 🌿 Enjoy LogiFlow!
