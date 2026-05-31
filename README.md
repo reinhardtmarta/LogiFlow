@@ -86,4 +86,6 @@ pip install streamlit pandas
 streamlit run app.py
 ```
 Or make the download in apk to Android in the realease version 1
+[⬇️ Download APK](https://github.com/reinhardtmarta/LogiFlow/releases/latest)
+
 > 🌿 Enjoy LogiFlow!
