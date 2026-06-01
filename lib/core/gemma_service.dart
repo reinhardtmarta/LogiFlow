@@ -1,9 +1,10 @@
-import 'package:google_generative_ai/google_generative_ai.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'dart:io';
 
 class GemmaService {
-  static final String _apiKey = const String.fromEnvironment('GEMINI_API_KEY', defaultValue: '');
-  static late GenerativeModel _model;
+  static const String _apiKey = String.fromEnvironment('OPENROUTER_API_KEY', defaultValue: '');
+  static const String _baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
   static bool isInitialized = false;
 
   static Future<void> initialize() async {
@@ -11,42 +12,74 @@ class GemmaService {
 
     try {
       if (_apiKey.isEmpty) {
-        throw Exception('GEMINI_API_KEY environment variable not set');
+        throw Exception('OPENROUTER_API_KEY not set');
       }
 
-      _model = GenerativeModel(
-        model: 'gemma-4-26b-a4b-it',
-        apiKey: _apiKey,
+      // Testa conexão
+      final response = await http.get(
+        Uri.parse('https://openrouter.ai/api/v1/models'),
+        headers: {'Authorization': 'Bearer $_apiKey'},
       );
 
-      isInitialized = true;
-      print("✅ Gemma 4 loaded successfully!");
+      if (response.statusCode == 200) {
+        isInitialized = true;
+        print("✅ OpenRouter + Gemma 4 conectado!");
+      } else {
+        throw Exception('Falha na conexão: ${response.statusCode}');
+      }
     } catch (e) {
-      print("❌ Error initializing Gemma 4: $e");
+      print("❌ Erro: $e");
       rethrow;
     }
   }
 
   static Future<String> generateResponse(String prompt, {String? imagePath}) async {
-    if (!isInitialized) return "Gemma 4 is still loading. Please wait...";
+    if (!isInitialized) return "Gemma 4 ainda está a carregar...";
 
     try {
-      final content = <Content>[];
+      List<Map<String, dynamic>> messages = [];
 
+      // Adiciona imagem se existir
       if (imagePath != null && await File(imagePath).exists()) {
         final imageBytes = await File(imagePath).readAsBytes();
-        content.add(Content.multi([
-          TextPart(prompt),
-          DataPart('image/jpeg', imageBytes),
-        ]));
+        final base64Image = base64Encode(imageBytes);
+        messages.add({
+          "role": "user",
+          "content": [
+            {"type": "text", "text": prompt},
+            {
+              "type": "image_url",
+              "image_url": {"url": "data:image/jpeg;base64,$base64Image"}
+            }
+          ]
+        });
       } else {
-        content.add(Content.text(prompt));
+        messages.add({"role": "user", "content": prompt});
       }
 
-      final response = await _model.generateContent(content);
-      return response.text?.trim() ?? "No response generated";
+      final response = await http.post(
+        Uri.parse(_baseUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $_apiKey',
+          'HTTP-Referer': 'https://github.com/reinhardtmarta/LogiFlow',
+          'X-Title': 'LogiFlow',
+        },
+        body: jsonEncode({
+          "model": "google/gemma-4-31b-it:free",
+          "messages": messages,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return data['choices'][0]['message']['content']?.trim() ?? "Sem resposta";
+      } else {
+        return "Erro ${response.statusCode}: ${data['error']?['message'] ?? 'Desconhecido'}";
+      }
     } catch (e) {
-      return "Sorry, I couldn't generate a response right now. Error: $e";
+      return "Erro ao gerar resposta: $e";
     }
   }
 
