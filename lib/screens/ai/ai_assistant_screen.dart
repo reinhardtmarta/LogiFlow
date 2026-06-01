@@ -1,89 +1,117 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'dart:io';
+import 'package:flutter/material.dart';
+import '../../core/gemma_service.dart';
+import '../../models/user.dart';
 
-class GemmaService {
-  static const String _apiKey = String.fromEnvironment('OPENROUTER_API_KEY', defaultValue: '');
-  static const String _baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
-  static bool isInitialized = false;
+class AiAssistantScreen extends StatefulWidget {
+  final User user;
+  const AiAssistantScreen({super.key, required this.user});
 
-  static Future<void> initialize() async {
-    if (isInitialized) return;
+  @override
+  State<AiAssistantScreen> createState() => _AiAssistantScreenState();
+}
 
+class _AiAssistantScreenState extends State<AiAssistantScreen> {
+  final TextEditingController _promptController = TextEditingController();
+  String _response = "Powered by Gemma 4 via OpenRouter.\nAsk anything about reducing food waste, promotions, or stock management.";
+  bool _isThinking = false;
+  bool _isInitializing = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _initGemma();
+  }
+
+  Future<void> _initGemma() async {
     try {
-      if (_apiKey.isEmpty) {
-        throw Exception('OPENROUTER_API_KEY not set');
-      }
-
-      // Testa conexão
-      final response = await http.get(
-        Uri.parse('https://openrouter.ai/api/v1/models'),
-        headers: {'Authorization': 'Bearer $_apiKey'},
-      );
-
-      if (response.statusCode == 200) {
-        isInitialized = true;
-        print("✅ OpenRouter + Gemma 4 conectado!");
-      } else {
-        throw Exception('Falha na conexão: ${response.statusCode}');
-      }
+      await GemmaService.initialize();
     } catch (e) {
-      print("❌ Erro: $e");
-      rethrow;
+      setState(() => _response = "❌ Failed to initialize Gemma 4: $e");
+    } finally {
+      setState(() => _isInitializing = false);
     }
   }
 
-  static Future<String> generateResponse(String prompt, {String? imagePath}) async {
-    if (!isInitialized) return "Gemma 4 ainda está a carregar...";
+  Future<void> _askGemma() async {
+    final q = _promptController.text.trim();
+    if (q.isEmpty) return;
 
-    try {
-      List<Map<String, dynamic>> messages = [];
+    setState(() => _isThinking = true);
 
-      // Adiciona imagem se existir
-      if (imagePath != null && await File(imagePath).exists()) {
-        final imageBytes = await File(imagePath).readAsBytes();
-        final base64Image = base64Encode(imageBytes);
-        messages.add({
-          "role": "user",
-          "content": [
-            {"type": "text", "text": prompt},
-            {
-              "type": "image_url",
-              "image_url": {"url": "data:image/jpeg;base64,$base64Image"}
-            }
-          ]
-        });
-      } else {
-        messages.add({"role": "user", "content": prompt});
-      }
+    final prompt = "You are LogiFlow AI helping reduce food waste.\nUser role: ${widget.user.isSeller ? 'Seller' : 'Consumer'}.\nQuestion: $q\nGive practical advice in 2-4 sentences.";
 
-      final response = await http.post(
-        Uri.parse(_baseUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $_apiKey',
-          'HTTP-Referer': 'https://github.com/reinhardtmarta/LogiFlow',
-          'X-Title': 'LogiFlow',
-        },
-        body: jsonEncode({
-          "model": "google/gemma-4-31b-it:free",
-          "messages": messages,
-        }),
-      );
+    final result = await GemmaService.generateResponse(prompt);
 
-      final data = jsonDecode(response.body);
-
-      if (response.statusCode == 200) {
-        return data['choices'][0]['message']['content']?.trim() ?? "Sem resposta";
-      } else {
-        return "Erro ${response.statusCode}: ${data['error']?['message'] ?? 'Desconhecido'}";
-      }
-    } catch (e) {
-      return "Erro ao gerar resposta: $e";
-    }
+    setState(() {
+      _response = result;
+      _isThinking = false;
+    });
   }
 
-  static Future<void> dispose() async {
-    isInitialized = false;
+  @override
+  void dispose() {
+    _promptController.dispose();
+    GemmaService.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Gemma 4 AI Assistant"),
+        backgroundColor: Colors.green,
+        foregroundColor: Colors.white,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: _isInitializing
+                  ? const Row(children: [
+                      CircularProgressIndicator(strokeWidth: 2),
+                      SizedBox(width: 12),
+                      Text("Loading Gemma 4..."),
+                    ])
+                  : Text(_response, style: const TextStyle(fontSize: 16)),
+            ),
+            const Spacer(),
+            TextField(
+              controller: _promptController,
+              decoration: const InputDecoration(
+                hintText: "What should I do with near-expiry milk?",
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: (_isThinking || _isInitializing) ? null : _askGemma,
+                icon: const Icon(Icons.psychology),
+                label: Text(_isInitializing
+                    ? "Loading Gemma 4..."
+                    : _isThinking
+                        ? "Thinking with Gemma 4..."
+                        : "Ask Gemma 4"),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text("Powered by Gemma 4 via OpenRouter",
+                style: TextStyle(fontSize: 12, color: Colors.grey)),
+          ],
+        ),
+      ),
+    );
   }
 }
