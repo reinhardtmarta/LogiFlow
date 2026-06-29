@@ -40,7 +40,8 @@ jobs:
         run: |
           MANIFEST_PATH="android/app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST_PATH" ]; then
-            sed -i '|<manifest[^>]*>|a \    <uses-permission android:name="android.permission.INTERNET" />' "$MANIFEST_PATH"
+            # Injeta a tag de permissão logo após a abertura da tag <manifest> usando substituição padrão com quebra de linha válida (\n)
+            sed -i 's|<manifest[^>]*>|&\n    <uses-permission android:name="android.permission.INTERNET" />|' "$MANIFEST_PATH"
             echo "✅ Permissão de internet injetada com sucesso!"
           else
             echo "❌ Arquivo AndroidManifest.xml não encontrado para modificação."
