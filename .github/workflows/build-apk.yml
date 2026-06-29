@@ -1,4 +1,4 @@
-Name: Build LogiFlow Android APK
+name: Build LogiFlow Android APK
 
 on:
   push:
@@ -54,3 +54,4 @@ jobs:
           name: LogiFlow-Android-APK
           path: LogiFlow-v${{ github.run_number }}.apk
           retention-days: 90
+          
