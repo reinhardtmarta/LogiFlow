@@ -2,69 +2,75 @@ import 'dart:io';
 import 'package:google_generative_ai/google_generative_ai.dart';
 
 class GemmaService {
-  // Certifique-se de passar esta chave via --dart-define no terminal
+  // A chave deve ser passada via --dart-define=GEMINI_API_KEY=SUA_CHAVE
   static const String _apiKey = String.fromEnvironment('GEMINI_API_KEY', defaultValue: '');
+  
   static GenerativeModel? _model;
   static bool isInitialized = false;
 
+  /// Inicializa o modelo Gemma 4 com a configuração necessária.
   static Future<void> initialize() async {
     if (isInitialized) return;
 
     try {
       if (_apiKey.isEmpty) {
-        throw Exception('GEMINI_API_KEY não configurada.');
+        throw Exception('A chave GEMINI_API_KEY não foi encontrada. Verifique o comando de execução.');
       }
 
-      // ATENÇÃO: Verifique se este ID de modelo está correto no seu Google AI Studio
+      // Instancia o modelo com o ID exato que você forneceu
       _model = GenerativeModel(
         model: 'gemma-4-26b-a4b-it', 
         apiKey: _apiKey,
       );
 
       isInitialized = true;
-      print("✅ Google AI Studio + Gemma 4 conectado!");
+      print("✅ Gemma Service: Modelo Gemma 4 26B inicializado!");
     } catch (e) {
-      print("❌ Erro de inicialização: $e");
       isInitialized = false;
+      print("❌ Gemma Service: Erro ao inicializar: $e");
       rethrow;
     }
   }
 
+  /// Gera uma resposta baseada em texto e/ou imagem.
+  /// [prompt] - O texto da pergunta do usuário.
+  /// [imagePath] - O caminho do arquivo de imagem (opcional).
   static Future<String> generateResponse(String prompt, {String? imagePath}) async {
+    // Verifica se o serviço está pronto
     if (!isInitialized || _model == null) {
-      return "Gemma 4 ainda está a carregar...";
+      return "Erro: O serviço Gemma não foi inicializado.";
     }
 
     try {
-      // Criamos o conteúdo da mensagem (o "turn" de conversa)
-      final Content content;
+      // Criamos a lista de partes (parts) para a mensagem
+      final List<Part> promptParts = [TextPart(prompt)];
 
+      // Se houver uma imagem, lemos os bytes e adicionamos como DataPart
       if (imagePath != null && await File(imagePath).exists()) {
         final imageBytes = await File(imagePath).readAsBytes();
-        
-        // Para multimodal, usamos Content.multi
-        content = Content.multi([
-          TextPart(prompt),
-          DataPart('image/jpeg', imageBytes), // Se a imagem puder ser PNG, considere tratar o MIME type
-        ]);
-      } else {
-        // Para apenas texto, usamos Content.text
-        content = Content.text(prompt);
+        // O Google AI SDK lida com o multipart via DataPart
+        promptParts.add(DataPart('image/jpeg', imageBytes));
       }
 
-      // O método generateContent espera uma lista de conteúdos (histórico)
-      // Como é uma pergunta única, passamos uma lista contendo apenas o 'content' atual
+      // Montamos o conteúdo (Content)
+      final content = Content.multi(promptParts);
+
+      // Enviamos para o modelo
+      // Nota: generateContent recebe uma lista de 'Content' (para conversas/histórico)
+      // Como estamos enviando apenas uma pergunta isolada, passamos uma lista com 1 item.
       final response = await _model!.generateContent([content]);
-      
-      return response.text ?? "Sem resposta";
+
+      return response.text ?? "O modelo retornou uma resposta vazia.";
     } catch (e) {
-      print("❌ Erro no generateResponse: $e");
+      print("❌ Gemma Service: Erro na geração: $e");
       return "Erro ao gerar resposta: $e";
     }
   }
 
-  static Future<void> dispose() async {
+  /// Limpa o modelo da memória quando não for mais necessário.
+  static void dispose() {
     _model = null;
     isInitialized = false;
+    print("🧹 Gemma Service: Serviço resetado.");
   }
 }
