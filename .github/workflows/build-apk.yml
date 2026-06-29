@@ -36,7 +36,19 @@ jobs:
             flutter create . --platforms android
           fi
 
-      - name: Build Release APK
+      # NOVA ETAPA: Garante que a permissão de internet existirá no build
+      - name: Injetar permissão de Internet no AndroidManifest
+        run: |
+          MANIFEST_PATH="android/app/src/main/AndroidManifest.xml"
+          if [ -f "$MANIFEST_PATH" ]; then
+            # Insere a tag de permissão logo após a abertura da tag <manifest>
+            sed -i '|<manifest[^>]*>|a \    <uses-permission android:name="android.permission.INTERNET" />' "$MANIFEST_PATH"
+            echo "✅ Permissão de internet injetada com sucesso!"
+          else
+            echo "❌ Arquivo AndroidManifest.xml não encontrado para modificação."
+          fi
+
+       Sirva-se de Build Release APK
         env:
           MINHA_CHAVE_API: ${{ secrets.GEMINI_API_KEY }}
         run: |
@@ -54,4 +66,3 @@ jobs:
           name: LogiFlow-Android-APK
           path: LogiFlow-v${{ github.run_number }}.apk
           retention-days: 90
-          
