@@ -71,7 +71,25 @@ class DatabaseHelper {
     // Popular o banco com dados iniciais para o Hackathon
     await _seedData(db);
   }
+  
+Future<void> updateProduct(int id, {int? qty, String? condition, String? expiryDate}) async {
+  final db = await instance.database;
+  
+  // Preparamos o mapa de atualização apenas com o que foi enviado
+  Map<String, dynamic> updates = {};
+  if (qty != null) updates['qty'] = qty;
+  if (condition != null) updates['condition'] = condition;
+  if (expiryDate != null) updates['expiry_date'] = expiryDate;
 
+  if (updates.isNotEmpty) {
+    await db.update(
+      'products',
+      updates,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+}
   Future<void> _seedData(Database db) async {
     // Seed Users
     await db.insert('users', {
