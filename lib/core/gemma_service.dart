@@ -6,6 +6,7 @@ enum BotCommand {
   showProduct,   // Command to render a product card
   listProducts,  // Command to list a category
   searchStock,   // Command to search inventory
+  updateStock,
   help,          // Command for assistance
   chat           // Fallback for simple text
 }
