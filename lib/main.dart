@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:logiflow/core/gemma_service.dart'; // Import correto no topo
 import 'package:logiflow/models/user.dart';
 import 'package:logiflow/screens/auth/login_screen.dart';
-import 'package:logifflow/screens/auth/register_screen.dart';
+import 'package:logiflow/screens/auth/register_screen.dart';
 import 'package:logiflow/screens/home/home_screen.dart';
 import 'package:logiflow/screens/seller/seller_dashboard.dart';
 import 'package:logiflow/screens/consumer/marketplace_screen.dart';
