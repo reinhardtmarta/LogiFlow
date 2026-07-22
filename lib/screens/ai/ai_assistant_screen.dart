@@ -17,7 +17,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   
   // A variável de inicialização foi removida, pois a nossa classe LogiFkGemmaService 
   // não precisa de um "await initialize()". Ela já é iniciada na memória abaixo.
-  final LogiFkGemmaService _gemmaService = LogiFkGemmaService();
+  final GemmaService _gemmaService = GemmaService();
 
   Future<void> _askGemma() async {
     final q = _promptController.text.trim();
