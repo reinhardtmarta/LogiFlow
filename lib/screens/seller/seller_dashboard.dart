@@ -35,7 +35,7 @@ class _SellerDashboardState extends State<SellerDashboard> {
 
   Future<void> _generateGemmaAnalysis(List<Product> products) async {
     String prompt = "Act as LogiFlow AI. Products: ${products.map((p) => '${p.name} (${p.quantity} units, expires ${p.expiryDate.toString().substring(0,10)})').join(', ')}. Give 2-3 practical wast[...]";
-    final response = await GemmaService.generateResponse(prompt);
+    final response = await LogiFlowBotService.execute(prompt);
     if (mounted) setState(() => _gemmaInsight = response);
   }
 
