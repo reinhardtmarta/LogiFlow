@@ -14,7 +14,7 @@ class SellerDashboard extends StatefulWidget {
 }
 
 class _SellerDashboardState extends State<SellerDashboard> {
-  final GemmaService _gemmaService = GemmaService();  // ← Adicione esta linha
+  final LogiFlowGemmaService _gemmaService = GemmaService();  // ← Adicione esta linha
   
   List<Product> _products = [];
   String _gemmaInsight = "Loading smart suggestions from Gemma...";
