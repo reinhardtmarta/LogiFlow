@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/product_model.dart';
 import '../../services/agent_service.dart';
+import '../../stock_screen.dart'; // Ajuste este caminho se a tela estiver em outra pasta
 
 class FeedScreen extends StatefulWidget {
   @override
@@ -9,7 +10,7 @@ class FeedScreen extends StatefulWidget {
 
 class _FeedScreenState extends State<FeedScreen> {
   final TextEditingController _controller = TextEditingController();
-  final List<Widget> _feedItems = []; // Aqui guardamos o que aparece na tela
+  final List<Widget> _feedItems = []; 
 
   void _handleSend() async {
     final text = _controller.text;
@@ -20,14 +21,11 @@ class _FeedScreenState extends State<FeedScreen> {
       _controller.clear();
     });
 
-    // Chama o Agente
     final response = await AgentService.processUserRequest(text);
 
     setState(() {
-      // 1. Adiciona a resposta de texto do agente
       _feedItems.add(_buildChatBubble(response.text, isUser: false));
 
-      // 2. Se o agente decidiu mostrar produtos, injeta os CARDS no feed
       if (response.action == AgentAction.showProduct && response.products != null) {
         for (var prod in response.products!) {
           _feedItems.add(_buildProductCard(prod));
@@ -40,25 +38,25 @@ class _FeedScreenState extends State<FeedScreen> {
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        margin: EdgeInsets.symmetric(vertical: 5, horizontal: 10),
-        padding: EdgeInsets.all(12),
+        margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isUser ? Colors.green[100] : Colors.grey[200],
           borderRadius: BorderRadius.circular(15),
         ),
-        child: Text(text, style: TextStyle(color: Colors.black87)),
+        child: Text(text, style: const TextStyle(color: Colors.black87)),
       ),
     );
   }
 
   Widget _buildProductCard(Product product) {
     return Container(
-      margin: EdgeInsets.all(15),
-      padding: EdgeInsets.all(15),
+      margin: const EdgeInsets.all(15),
+      padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 5)],
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 5)],
         border: Border.all(color: product.isRescue ? Colors.redAccent : Colors.green, width: 2),
       ),
       child: Column(
@@ -67,32 +65,32 @@ class _FeedScreenState extends State<FeedScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(product.name, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(product.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               if (product.isRescue) 
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(5)),
-                  child: Text("RESCATE", style: TextStyle(color: Colors.white, fontSize: 10)),
+                  child: const Text("RESCATE", style: TextStyle(color: Colors.white, fontSize: 10)),
                 ),
             ],
           ),
-          SizedBox(height: 5),
-          Text("📍 ${product.address}", style: TextStyle(color: Colors.grey)),
-          Divider(),
+          const SizedBox(height: 5),
+          Text("📍 ${product.address}", style: const TextStyle(color: Colors.grey)),
+          const Divider(),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text("R\$ ${product.price.toStringAsFixed(2)}", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green)),
-              Text("Qtd: ${product.quantity}", style: TextStyle(color: Colors.black54)),
+              Text("R\$ ${product.price.toStringAsFixed(2)}", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green)),
+              Text("Qtd: ${product.quantity}", style: const TextStyle(color: Colors.black54)),
             ],
           ),
-          SizedBox(height: 10),
+          const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
               onPressed: () {}, 
-              child: Text("Ver detalhes"),
               style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+              child: const Text("Ver detalhes"),
             ),
           )
         ],
@@ -103,7 +101,22 @@ class _FeedScreenState extends State<FeedScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("LogiFlow Agent")),
+      appBar: AppBar(
+        title: const Text("LogiFlow Agent"),
+        // Adição do botão de navegação para o StockScreen
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.inventory),
+            tooltip: 'Acessar Estoque',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const StockScreen()),
+              );
+            },
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Expanded(
@@ -120,12 +133,20 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Widget _buildInputArea() {
     return Container(
-      padding: EdgeInsets.all(8),
+      padding: const EdgeInsets.all(8),
       color: Colors.white,
       child: Row(
         children: [
-          Expanded(child: TextField(controller: _controller, decoration: InputDecoration(hintText: "Procure alimentos..."))),
-          IconButton(icon: Icon(Icons.send, color: Colors.green), onPressed: _handleSend),
+          Expanded(
+            child: TextField(
+              controller: _controller, 
+              decoration: const InputDecoration(hintText: "Procure alimentos...")
+            )
+          ),
+          IconButton(
+            icon: const Icon(Icons.send, color: Colors.green), 
+            onPressed: _handleSend
+          ),
         ],
       ),
     );
