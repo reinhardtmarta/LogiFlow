@@ -16,10 +16,10 @@ void main() async {
 
   // Inicializa o Bot de forma segura
   try {
-    await LogiFlowBotService.initialize();
-    print("✅ LogiFlow Bot Inicializado");
+    await Gemmaservice.initialize();
+    print("✅ LogiFlow  Loading");
   } catch (e) {
-    print("❌ Erro ao iniciar Bot: $e");
+    print("❌ Error: $e");
   }
   
   runApp(const LogiFlowApp());
