@@ -16,7 +16,7 @@ void main() async {
 
   // Inicializa o Bot de forma segura
   try {
-    await GemmaService.initialize();
+    await LogiFlowGemmaService.initialize();
     print("✅ LogiFlow  Loading");
   } catch (e) {
     print("❌ Error: $e");
