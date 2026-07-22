@@ -25,7 +25,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
   Future<void> _initGemma() async {
     try {
-      await GemmaService.initialize();
+      await LogiFlowBotService.initialize();
       setState(() => _statusMessage = "");
     } catch (e) {
       setState(() => _statusMessage = "⚠️ Não foi possível conectar. Verifica a API key.");
