@@ -37,7 +37,7 @@ static const String _apiKey = 'GEMINI_API_KEY';
 
    late GenerativeModel _model;
 
-   LogiFkGemmaService() {
+   GemmaService() {
 
 _model = GenerativeModel(
 model: _modelName,
