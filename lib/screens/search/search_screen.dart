@@ -60,7 +60,7 @@ class _SearchScreenState extends State<SearchScreen> {
                         itemBuilder: (context, i) {
                           final p = _results[i];
                           return ListTile(
-                            title: Text(p.product),
+                            title: Text(p.name),
                             subtitle: Text("${p.quantity} units • Expires: ${p.expiryDate.toString().substring(0,10)}"),
                             trailing: Text("\$${p.price.toStringAsFixed(2)}", style: const TextStyle(fontWeight: FontWeight.bold)),
                             onTap: user == null
@@ -71,7 +71,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                         builder: (_) => ChatScreen(
                                           currentUser: user,
                                           receiverId: p.userId,
-                                          receiverProduct: "Seller",
+                                          receiverName: "Seller",
                                         ),
                                       ),
                                     ),
