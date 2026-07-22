@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/gemma_service.dart'; // Arquivo onde está o LogiFkGemmaService
+import '../../core/gemma_service.dart'; // Arquivo onde está o askgemmma
 import '../../models/user.dart';
 
 class AiAssistantScreen extends StatefulWidget {
@@ -15,9 +15,6 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   final List<Map<String, String>> _messages = [];
   bool _isThinking = false;
   
-  // A variável de inicialização foi removida, pois a nossa classe LogiFkGemmaService 
-  // não precisa de um "await initialize()". Ela já é iniciada na memória abaixo.
-  final LogiFlowGemmaService _gemmaService = LogiFlowGemmaService();
 
   Future<void> _askGemma() async {
     final q = _promptController.text.trim();
