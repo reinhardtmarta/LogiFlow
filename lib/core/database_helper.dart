@@ -27,7 +27,7 @@ class DatabaseHelper {
   }
 
   Future<void> _createDB(Database db, int version) async {
-    // Users Table
+    // Tabela de Usuários
     await db.execute('''
       CREATE TABLE users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -40,7 +40,7 @@ class DatabaseHelper {
       )
     ''');
 
-    // Products Table
+    // Tabela de Produtos (O seu Feed)
     await db.execute('''
       CREATE TABLE products (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -57,7 +57,7 @@ class DatabaseHelper {
       )
     ''');
 
-    // Messages Table
+    // Tabela de Mensagens (Chat)
     await db.execute('''
       CREATE TABLE messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -68,7 +68,7 @@ class DatabaseHelper {
       )
     ''');
 
-    // Seed initial data
+    // Popular o banco com dados iniciais para o Hackathon
     await _seedData(db);
   }
 
@@ -101,8 +101,9 @@ class DatabaseHelper {
       'is_seller': 0,
     });
 
-    // Seed some products
+    // Seed Produtos para o Feed não aparecer vazio
     final today = DateTime.now();
+    
     await db.insert('products', {
       'user_id': 1,
       'name': 'Organic Milk',
@@ -113,9 +114,32 @@ class DatabaseHelper {
       'is_producer': 1,
       'address': 'Farm Gate',
     });
+
+    await db.insert('products', {
+      'user_id': 2,
+      'name': 'Avocado',
+      'qty': 20,
+      'price': 2.00,
+      'expiry_date': today.add(const Duration(days: 3)).toIso8601String(),
+      'condition': 'Ripe',
+      'is_producer': 0,
+      'address': 'City Center',
+    });
+
+    await db.insert('products', {
+      'user_id': 1,
+      'name': 'Sourdough Bread',
+      'qty': 10,
+      'price': 5.00,
+      'expiry_date': today.add(const Duration(days: 2)).toIso8601String(),
+      'condition': 'Bakery',
+      'is_producer': 1,
+      'address': 'Farm Gate',
+    });
   }
 
-  // ==================== AUTH ====================
+  // ==================== AUTHENTICATION ====================
+
   Future<User?> loginUser(String email, String password) async {
     final db = await instance.database;
     final maps = await db.query(
@@ -136,17 +160,20 @@ class DatabaseHelper {
       await db.insert('users', user.toMap());
       return true;
     } catch (e) {
-      return false; // Email already exists
+      return false; // Email duplicado ou erro de inserção
     }
   }
 
-  // ==================== PRODUCTS ====================
+  // ==================== PRODUCTS (FEED) ====================
+
+  // Busca todos os produtos (usado para o Feed Geral)
   Future<List<Product>> getAllProducts() async {
     final db = await instance.database;
     final result = await db.query('products');
     return result.map((json) => Product.fromMap(json)).toList();
   }
 
+  // Busca produtos de um usuário específico (Dashboard do Vendedor)
   Future<List<Product>> getUserProducts(int userId) async {
     final db = await instance.database;
     final result = await db.query(
@@ -157,12 +184,24 @@ class DatabaseHelper {
     return result.map((json) => Product.fromMap(json)).toList();
   }
 
+  // MÉTODO ESSENCIAL PARA O BOT: Busca por nome (ex: "tem leite?")
+  Future<List<Product>> searchProducts(String query) async {
+    final db = await instance.database;
+    final result = await db.query(
+      'products',
+      where: 'name LIKE ?',
+      whereArgs: ['%$query%'], // O '%' permite buscar partes do nome
+    );
+    return result.map((json) => Product.fromMap(json)).toList();
+  }
+
   Future<void> insertProduct(Product product) async {
     final db = await instance.database;
     await db.insert('products', product.toMap());
   }
 
-  // ==================== MESSAGES ====================
+  // ==================== MESSAGES (CHAT) ====================
+
   Future<void> sendMessage(int senderId, int receiverId, String message) async {
     final db = await instance.database;
     await db.insert('messages', {
