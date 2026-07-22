@@ -1,108 +1,80 @@
-import 'dart:convert';
-import 'dart:io';
-import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:logiflow/core/database_helper.dart';
+import 'package:logiflow/models/product.dart';
 
-// 1. Definimos os comandos que o BOT pode disparar para o App
+// 1. Commands that the App interprets to change the UI
 enum BotCommand {
-  showProduct,   // Comando para renderizar um card de produto
-  listProducts,  // Comando para listar uma categoria
-  searchStock,   // Comando para busca de estoque
-  help,          // Comando de ajuda
-  chat           // Fallback para conversas simples
+  showProduct,   // Command to render a product card
+  listProducts,  // Command to list a category
+  searchStock,   // Command to search inventory
+  help,          // Command for assistance
+  chat           // Fallback for simple text
 }
 
-// 2. O objeto que o BOT retorna (Não é apenas texto, é uma instrução de sistema)
+// 2. The object returned by the BOT (Structured data, not just text)
 class BotResponse {
   final BotCommand command;
-  final String message; // O que o bot diz para o usuário
-  final Map<String, dynamic>? payload; // Os dados (id, valor, qtd) para o App usar
+  final String message; // What the bot says to the user
+  final List<Product>? products; // The actual products found in the DB
 
   BotResponse({
     required this.command,
     required this.message,
-    this.payload,
+    this.products,
   });
 }
 
 class LogiFlowBotService {
-  static const String _apiKey = String.fromEnvironment('GEMINI_API_KEY', defaultValue: '');
-  static GenerativeModel? _model;
   static bool isInitialized = false;
 
-  // A "Programação" do Bot: Aqui definimos que ele é um controlador de comandos, não um falador.
-  static const String _botInstructions = """
-  Você é o BOT OPERACIONAL do LogiFlow. Sua única função é converter pedidos de usuários em COMANDOS JSON.
-  Você não deve conversar casualmente, a menos que o comando seja 'chat'.
-  
-  REGRAS DE OURO:
-  1. Se o usuário quiser ver um item, use o comando 'showProduct'.
-  2. Se o usuário quiser saber sobre estoque ou procurar algo, use 'searchStock'.
-  3. Se o usuário perguntar sobre categorias, use 'listProducts'.
-  4. Se o usuário for apenas educado ou perguntar algo fora do escopo, use 'chat'.
-
-  FORMATO DE RESPOSTA OBRIGATÓRIO (JSON):
-  {
-    "command": "showProduct" | "listProducts" | "searchStock" | "help" | "chat",
-    "message": "Frase curta e direta para o usuário",
-    "payload": { 
-       "id": "opcional",
-       "query": "opcional",
-       "category": "opcional"
-    }
-  }
-  """;
-
+  // Instant initialization (No API needed, works offline)
   static Future<void> initialize() async {
-    if (isInitialized) return;
-    try {
-      if (_apiKey.isEmpty) throw Exception('API Key não configurada.');
-
-      _model = GenerativeModel(
-        model: 'gemini-1.5-flash', // Flash é ideal para bots de comando (rápido e estruturado)
-        apiKey: _apiKey,
-        systemInstruction: Content.system(_botInstructions),
-      );
-
-      isInitialized = true;
-      print("🤖 LogiFlow Bot Ready!");
-    } catch (e) {
-      print("❌ Bot Init Error: $e");
-      rethrow;
-    }
+    isInitialized = true;
+    print("🤖 LogiFlow Local Bot Ready (Offline Mode)");
   }
 
-  // O MÉTODO PRINCIPAL: O Bot interpreta e decide o que o App deve fazer
+  // MAIN METHOD: The "Brain" that interprets user intent via keyword matching
   static Future<BotResponse> execute(String userInput) async {
-    if (!isInitialized || _model == null) {
-      return BotResponse(command: BotCommand.chat, message: "Bot carregando...");
+    if (!isInitialized) {
+      return BotResponse(command: BotCommand.chat, message: "Bot is loading...");
     }
 
-    try {
-      final response = await _model!.generateContent([Content.text(userInput)]);
-      final String rawJson = response.text ?? '{}';
-      
-      // Limpeza para garantir que o JSON seja válido (remove markdown se a IA colocar)
-      final String cleanJson = rawJson.replaceAll('```json', '').replaceAll('```', '').trim();
-      final Map<String, dynamic> decoded = jsonDecode(cleanJson);
+    final input = userInput.toLowerCase();
+    final db = DatabaseHelper.instance;
 
-      // Mapeamento do comando string -> enum
-      BotCommand command;
-      switch (decoded['command']) {
-        case 'showProduct': command = BotCommand.showProduct; break;
-        case 'listProducts': command = BotCommand.listProducts; break;
-        case 'searchStock': command = BotCommand.searchStock; break;
-        case 'help': command = BotCommand.help; break;
-        default: command = BotCommand.chat;
+    try {
+      // CASE 1: User wants help
+      if (input.contains("help") || input.contains("how") || input.contains("command")) {
+        return BotResponse(
+          command: BotCommand.help,
+          message: "You can ask about products (e.g., 'is there milk?') or ask to list items.",
+        );
       }
 
+      // CASE 2: User is looking for a specific item (Search Intent)
+      // We assume if they type a word, they want to search that term in the DB
+      final List<Product> foundProducts = await db.searchProducts(input); 
+
+      if (foundProducts.isNotEmpty) {
+        // If items were found, trigger the 'showProduct' command
+        return BotResponse(
+          command: BotCommand.showProduct,
+          message: "I found ${foundProducts.length} item(s) for you:",
+          products: foundProducts,
+        );
+      }
+
+      // CASE 3: If nothing was found in the database
       return BotResponse(
-        command: command,
-        message: decoded['message'] ?? '',
-        payload: decoded['payload'],
+        command: BotCommand.chat,
+        message: "Sorry, I couldn't find anything matching that name in our local stock.",
       );
+
     } catch (e) {
       print("Bot Error: $e");
-      return BotResponse(command: BotCommand.chat, message: "Erro ao processar comando.");
+      return BotResponse(
+        command: BotCommand.chat, 
+        message: "Error while accessing the local database."
+      );
     }
   }
 }
