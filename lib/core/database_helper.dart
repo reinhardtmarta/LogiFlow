@@ -11,7 +11,9 @@ class DatabaseHelper {
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await _initDB('logiflow.db');
+    // O nome do arquivo foi alterado para v2. 
+    // Isso força o celular a criar um banco limpo com a nova estrutura.
+    _database = await _initDB('logiflow_v2.db');
     return _database!;
   }
 
@@ -40,7 +42,7 @@ class DatabaseHelper {
       )
     ''');
 
-    // Tabela de Produtos (O seu Feed)
+    // Tabela de Produtos (Atualizada com a estrutura final do formulário)
     await db.execute('''
       CREATE TABLE products (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,13 +53,16 @@ class DatabaseHelper {
         expiry_date TEXT NOT NULL,
         condition TEXT NOT NULL,
         is_producer INTEGER NOT NULL,
-        address TEXT,
+        address TEXT NOT NULL,
+        image_path TEXT,
+        category TEXT NOT NULL,
+        is_rescue INTEGER NOT NULL DEFAULT 0,
         waste_prevented_kg REAL DEFAULT 0.0,
         FOREIGN KEY(user_id) REFERENCES users(id)
       )
     ''');
 
-    // Tabela de Mensagens (Chat)
+    // Tabela de Mensagens
     await db.execute('''
       CREATE TABLE messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -68,30 +73,29 @@ class DatabaseHelper {
       )
     ''');
 
-    // Popular o banco com dados iniciais para o Hackathon
+    // Insere os dados de teste na primeira vez que o app rodar
     await _seedData(db);
   }
   
-Future<void> updateProduct(int id, {int? qty, String? condition, String? expiryDate}) async {
-  final db = await instance.database;
-  
-  // Preparamos o mapa de atualização apenas com o que foi enviado
-  Map<String, dynamic> updates = {};
-  if (qty != null) updates['qty'] = qty;
-  if (condition != null) updates['condition'] = condition;
-  if (expiryDate != null) updates['expiry_date'] = expiryDate;
+  Future<void> updateProduct(int id, {int? qty, String? condition, String? expiryDate}) async {
+    final db = await instance.database;
+    
+    Map<String, dynamic> updates = {};
+    if (qty != null) updates['qty'] = qty;
+    if (condition != null) updates['condition'] = condition;
+    if (expiryDate != null) updates['expiry_date'] = expiryDate;
 
-  if (updates.isNotEmpty) {
-    await db.update(
-      'products',
-      updates,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    if (updates.isNotEmpty) {
+      await db.update(
+        'products',
+        updates,
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    }
   }
-}
+
   Future<void> _seedData(Database db) async {
-    // Seed Users
     await db.insert('users', {
       'name': 'Green Valley Farms',
       'email': 'farm@demo.com',
@@ -119,9 +123,9 @@ Future<void> updateProduct(int id, {int? qty, String? condition, String? expiryD
       'is_seller': 0,
     });
 
-    // Seed Produtos para o Feed não aparecer vazio
     final today = DateTime.now();
     
+    // Produtos de teste com os campos novos (category e is_rescue)
     await db.insert('products', {
       'user_id': 1,
       'name': 'Organic Milk',
@@ -131,6 +135,8 @@ Future<void> updateProduct(int id, {int? qty, String? condition, String? expiryD
       'condition': 'Fresh',
       'is_producer': 1,
       'address': 'Farm Gate',
+      'category': 'Dairy',
+      'is_rescue': 0,
     });
 
     await db.insert('products', {
@@ -142,6 +148,8 @@ Future<void> updateProduct(int id, {int? qty, String? condition, String? expiryD
       'condition': 'Ripe',
       'is_producer': 0,
       'address': 'City Center',
+      'category': 'Fruits & Vegetables',
+      'is_rescue': 0,
     });
 
     await db.insert('products', {
@@ -153,6 +161,8 @@ Future<void> updateProduct(int id, {int? qty, String? condition, String? expiryD
       'condition': 'Bakery',
       'is_producer': 1,
       'address': 'Farm Gate',
+      'category': 'Bakery',
+      'is_rescue': 0,
     });
   }
 
@@ -178,20 +188,18 @@ Future<void> updateProduct(int id, {int? qty, String? condition, String? expiryD
       await db.insert('users', user.toMap());
       return true;
     } catch (e) {
-      return false; // Email duplicado ou erro de inserção
+      return false; 
     }
   }
 
-  // ==================== PRODUCTS (FEED) ====================
+  // ==================== PRODUCTS ====================
 
-  // Busca todos os produtos (usado para o Feed Geral)
   Future<List<Product>> getAllProducts() async {
     final db = await instance.database;
     final result = await db.query('products');
     return result.map((json) => Product.fromMap(json)).toList();
   }
 
-  // Busca produtos de um usuário específico (Dashboard do Vendedor)
   Future<List<Product>> getUserProducts(int userId) async {
     final db = await instance.database;
     final result = await db.query(
@@ -202,13 +210,12 @@ Future<void> updateProduct(int id, {int? qty, String? condition, String? expiryD
     return result.map((json) => Product.fromMap(json)).toList();
   }
 
-  // MÉTODO ESSENCIAL PARA O BOT: Busca por nome (ex: "tem leite?")
   Future<List<Product>> searchProducts(String query) async {
     final db = await instance.database;
     final result = await db.query(
       'products',
       where: 'name LIKE ?',
-      whereArgs: ['%$query%'], // O '%' permite buscar partes do nome
+      whereArgs: ['%$query%'],
     );
     return result.map((json) => Product.fromMap(json)).toList();
   }
@@ -218,7 +225,7 @@ Future<void> updateProduct(int id, {int? qty, String? condition, String? expiryD
     await db.insert('products', product.toMap());
   }
 
-  // ==================== MESSAGES (CHAT) ====================
+  // ==================== MESSAGES ====================
 
   Future<void> sendMessage(int senderId, int receiverId, String message) async {
     final db = await instance.database;
