@@ -1,147 +1,153 @@
 import 'dart:convert';
+
 import 'package:google_generative_ai/google_generative_ai.dart';
-import 'package:logiflow/core/database_helper.dart';
-import 'package:logiflow/models/product.dart';
 
-// 1. Comandos que o App entende para mudar a interface
-enum BotCommand {
-  showProduct,   // Mostrar um card de produto
-  listProducts,  // Listar todos os produtos
-  searchStock,   // Buscar um item específico
-  updateStock,   // Atualizar quantidade ou status
-  help,          // Ajuda
-  chat           // Conversa simples
+// 1. Commands mapped to the application flow
+enum BotCommand { 
+showProduct, 
+listProducts, 
+updateStock, 
+help, 
+chat, 
+error 
 }
 
-// 2. O objeto que o BOT retorna
+// 2. Standardized response structure
 class BotResponse {
-  final BotCommand command;
-  final String message; // A resposta em texto para o usuário
-  final List<Product>? products; // Os produtos reais encontrados no banco
-  final Map<String, dynamic>? payload; 
+final BotCommand command;
 
-  BotResponse({
-    required this.command,
-    required this.message,
-    this.products,
-    this.payload,
-  });
+final String message;
+
+final Map<String, dynamic>? payload;
+
+BotResponse({
+required this.command, 
+required this.message, 
+this.payload
+
+});
+
 }
 
-class LogiFlowBotService {
-  static const String _apiKey = String.fromEnvironment('GEMINI_API_KEY', defaultValue: '');
-  static GenerativeModel? _model;
-  static bool isInitialized = false;
+// 3. Gemma Main Service
+class LogiFkGemmaService {
+static const String _apiKey = 'GEMINI_API_KEY';
 
-  // Instrução de Sistema que define o comportamento e o formato
-  static const String _systemInstruction = """
-  You are the LogiFlow Intelligent Agent. 
-  Your job is to act as a bridge between the user and the inventory database.
+ static const String _modelName = 'gemma-4-26b-a4b';
+
+   late GenerativeModel _model;
+
+   LogiFkGemmaService() {
+
+_model = GenerativeModel(
+model: _modelName,
+apiKey: _apiKey,
+
+// Configuration to force predictable responses in JSON format
+generationConfig: GenerationConfig(
+temperature: 0.0, // Absolute zero to avoid creative or invented responses
+responseMimeType: 'application/json',
+
+),
+
+// System Instructions (Business Rules)
+
+systemInstruction: Content.system('''
+
+You are a technical inventory search agent.
+
+REQUIRED CONTEXT: 
+This application is strictly a BRIDGE between sellers. 
+You are NOT a store.
+
+OPERATING RULES:
+
+1. Exclusive Focus: Respond ONLY to the existence and location of products.
+
+2. Sales Prohibition: NEVER make sales, NEVER quote final prices, and NEVER offer discounts.
+
+3. Privacy: NEVER  Answer questions about users, customers, or personal data. If prompted, refuse.
+
+4. Size: The "message" field must have a maximum of 15 words. State only the facts.
+
+5. Format: Generate ONLY one valid JSON object.
+
+JSON STRUCTURE:
+
+{
+"command": "<showProduct, listProducts, updateStock, help, chat>",
+
+"message": "<your short answer of up to 15 words>",
+
+"payload": {"query": "<technical name or id of the extracted product>"}
+
+}
+'''),
+
+);
+
+}
+
+// 4. Function that sends the message and processes the return
+
+Future<BotResponse> processQuery(String input) async {
+
+try {
+
+final content = [Content.text(input)];
+
+final response = await _model.generateContent(content);
+
+ // Security validation: if empty
+
+if (response.text == null || response.text!.isEmpty) {
+
+return BotResponse(
+command: BotCommand.error, 
+message: 'Failure: No information received from the model.'
+
+);
+
+}
+
+// Converts the raw JSON text into a data map (Map)
+final Map<String, dynamic> jsonResponse = jsonDecode(response.text!);
+
+// Maps the string command to the BotCommand Enum
+final commandString = jsonResponse['command'] as String?;
+
+final command = BotCommand.values.firstWhere(
+
+(e) => e.name == commandString,
+
+orElse: () => BotCommand.chat, // Default if not recognized
+
+);
+
+ // Returns the cleaned object for your user interface to read
+
+return BotResponse(
+command: command,
+
+message: jsonResponse['message'] ?? 'Search processed.',
+
+payload: jsonResponse['payload'] as Map<String, dynamic>?,
+
+);
+
+} catch (e) {
+
+// If the AI misinterprets the format or there is a network error, the app doesn't break
+
+return BotResponse(
+command: BotCommand.error,
+
+message: 'Data processing failure (structural error).',
+
+);
+
+}
+
+}
+
   
-  RULES:
-  1. You will be provided with a list of real products (The Inventory).
-  2. Use ONLY the provided inventory to answer questions about stock or items.
-  3. If a user asks to update something (e.g., 'add 10 apples'), return an 'updateStock' command.
-  4. If a user asks for a product, return 'showProduct' and the product data.
-  5. Always respond in valid JSON format.
-
-  JSON FORMAT:
-  {
-    "command": "showProduct" | "listProducts" | "searchStock" | "updateStock" | "help" | "chat",
-    "message": "Your friendly response in English or Portuguese",
-    "payload": { "id": 1, "qty": 10, "item_name": "name", "status": "cleaned" }
-  }
-  """;
-
-  static Future<void> initialize() async {
-    if (isInitialized) return;
-    try {
-      if (_apiKey.isEmpty) throw Exception('API Key missing!');
-
-      _model = GenerativeModel(
-        model: 'gemini-1.5-flash', // Flash é perfeito para RAG (rápido e barato)
-        apiKey: _apiKey,
-        systemInstruction: Content.system(_systemInstruction),
-      );
-
-      isInitialized = true;
-      print("🤖 LogiFlow RAG Bot Ready!");
-    } catch (e) {
-      print("❌ Bot Init Error: $e");
-      rethrow;
-    }
-  }
-
-  static Future<BotResponse> execute(String userInput) async {
-    if (!isInitialized || _model == null) {
-      return BotResponse(command: BotCommand.chat, message: "Bot is loading...");
-    }
-
-    try {
-      // --- PASSO 1: BUSCAR OS DADOS REAIS DO BANCO (O SEGREDO DO RAG) ---
-      final db = DatabaseHelper.instance;
-      final List<Product> allProducts = await db.getAllProducts();
-      
-      // Transformamos a lista de produtos em uma string de texto para a IA ler
-      String inventoryContext = "CURRENT INVENTORY:\n";
-      if (allProducts.isEmpty) {
-        inventoryContext += "No products in stock.";
-      } else {
-        for (var p in allProducts) {
-          inventoryContext += "- ID: ${p.id}, Name: ${p.name}, Qty: ${p.quantity}, Price: ${p.price}, Status: ${p.condition}, Expiry: ${p.expiryDate}\n";
-        }
-      }
-
-      // --- PASSO 2: MONTAR O PROMPT COM O CONTEXTO ---
-      // Enviamos o contexto do banco + a pergunta do usuário
-      final fullPrompt = """
-$inventoryContext
-
-USER REQUEST: $userInput
-""";
-
-      // --- PASSO 3: CHAMADA DA IA ---
-      final response = await _model!.generateContent([Content.text(fullPrompt)]);
-      final String rawJson = response.text ?? '{}';
-      
-      // Limpeza de Markdown (remove ```json ... ```)
-      final String cleanJson = rawJson.replaceAll('```json', '').replaceAll('```', '').trim();
-      final Map<String, dynamic> decoded = jsonDecode(cleanJson);
-
-      // Mapeamento do comando
-      BotCommand command;
-      switch (decoded['command']) {
-        case 'showProduct': command = BotCommand.showProduct; break;
-        case 'listProducts': command = BotCommand.listProducts; break;
-        case 'searchStock': command = BotCommand.searchStock; break;
-        case 'updateStock': command = BotCommand.updateStock; break;
-        case 'help': command = BotCommand.help; break;
-        default: command = BotCommand.chat;
-      }
-
-      // --- PASSO 4: TRATAR O RESULTADO ---
-      
-      // Se o comando for mostrar produto, buscamos os detalhes reais do banco usando o ID que a IA sugeriu
-      List<Product>? products;
-      if (command == BotCommand.showProduct && decoded['payload'] != null) {
-        final String? idStr = decoded['payload']['id']?.toString();
-        if (idStr != null) {
-          final int targetId = int.parse(idStr);
-          final allItems = await db.getAllProducts();
-          products = allItems.where((p) => p.id == targetId).toList();
-        }
-      }
-
-      return BotResponse(
-        command: command,
-        message: decoded['message'] ?? '',
-        products: products,
-        payload: decoded['payload'],
-      );
-
-    } catch (e) {
-      print("Bot Error: $e");
-      return BotResponse(command: BotCommand.chat, message: "Error accessing inventory data.");
-    }
-  }
-}
