@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/product.dart';
 import '../../core/database_helper.dart';
-import 'package:intl/intl.dart'; // Para formatar datas
 
 class StockScreen extends StatefulWidget {
   const StockScreen({super.key});
@@ -28,11 +27,11 @@ class _StockScreenState extends State<StockScreen> {
     });
   }
 
-  // Função para atualizar quantidade rapidamente
   void _updateQty(Product product, int change) async {
     final newQty = (product.quantity + change).clamp(0, 999);
-    await DatabaseHelper.instance.updateProduct(product.id, qty: newQty);
-    _loadStock(); // Atualiza a lista
+    // Correção: Adição do "!" para garantir que o ID não é nulo
+    await DatabaseHelper.instance.updateProduct(product.id!, qty: newQty);
+    _loadStock(); 
   }
 
   @override
@@ -43,7 +42,6 @@ class _StockScreenState extends State<StockScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                // Filtros de Status (Tabs)
                 _buildStatusFilter(),
                 
                 Expanded(
@@ -65,12 +63,16 @@ class _StockScreenState extends State<StockScreen> {
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text("Status: ${item.condition}"), // Aqui entra: New, Cleaned, Packaged...
+                              Text("Status: ${item.condition}"),
                               Text(
                                 isExpiring 
                                   ? "⚠️ $daysLeft days until expiry!" 
-                                  : "Expires in $days days",
-                                style: TextStyle(color: isExpiring ? Colors.red : Colors.black54, fontWeight: isExpiring ? FontWeight.bold : FontWeight.normal),
+                                  // Correção: Variável alterada de $days para $daysLeft
+                                  : "Expires in $daysLeft days",
+                                style: TextStyle(
+                                  color: isExpiring ? Colors.red : Colors.black54, 
+                                  fontWeight: isExpiring ? FontWeight.bold : FontWeight.normal
+                                ),
                               ),
                             ],
                           ),
@@ -103,9 +105,7 @@ class _StockScreenState extends State<StockScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             child: ActionChip(
               label: Text(status),
-              onPressed: () {
-                // Lógica de filtro para a lista
-              },
+              onPressed: () {},
             ),
           );
         }).toList(),
