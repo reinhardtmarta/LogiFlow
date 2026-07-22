@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/gemma_service.dart';
+import '../../core/gemma_service.dart'; // Arquivo onde está o LogiFkGemmaService
 import '../../models/user.dart';
 
 class AiAssistantScreen extends StatefulWidget {
@@ -14,26 +14,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   final TextEditingController _promptController = TextEditingController();
   final List<Map<String, String>> _messages = [];
   bool _isThinking = false;
-  bool _isInitializing = true;
-  String _statusMessage = "";
-
-  @override
-  void initState() {
-    super.initState();
-    _initGemma();
-  }
-
-  Future<void> _initGemma() async {
-    try {
-      // Corrigido para LogiFlowBotService
-      await LogiFlowBotService.initialize();
-      setState(() => _statusMessage = "");
-    } catch (e) {
-      setState(() => _statusMessage = "⚠️ Não foi possível conectar. Verifica a API key.");
-    } finally {
-      setState(() => _isInitializing = false);
-    }
-  }
+  
+  // A variável de inicialização foi removida, pois a nossa classe LogiFkGemmaService 
+  // não precisa de um "await initialize()". Ela já é iniciada na memória abaixo.
+  final LogiFkGemmaService _gemmaService = LogiFkGemmaService();
 
   Future<void> _askGemma() async {
     final q = _promptController.text.trim();
@@ -45,22 +29,32 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       _isThinking = true;
     });
 
-    final prompt = "You are LogiFlow AI helping reduce food waste.\nUser role: ${widget.user.isSeller ? 'Seller' : 'Consumer'}.\nQuestion: $q\nGive practical advice in 2-4 sentences.";
+    try {
+      // 1. O prompt customizado foi removido daqui para evitar conflito com as 
+      // System Instructions rígidas que já estão dentro do LogiFkGemmaService.
+      // 2. Chamada correta da função criada por nós: processQuery
+      final result = await _gemmaService.processQuery(q);
 
-    // CORREÇÃO: Nome da classe mudou para LogiFlowBotService e método para execute
-    final result = await LogiFlowBotService.execute(prompt);
-
-    setState(() {
-      // CORREÇÃO: Como o retorno é um objeto BotResponse, precisamos usar .message
-      _messages.add({"role": "gemma", "text": result.message});
-      _isThinking = false;
-    });
+      if (mounted) {
+        setState(() {
+          // Acessamos o campo "message" do objeto BotResponse retornado
+          _messages.add({"role": "gemma", "text": result.message});
+          _isThinking = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _messages.add({"role": "gemma", "text": "Erro de processamento na comunicação com a IA."});
+          _isThinking = false;
+        });
+      }
+    }
   }
 
   @override
   void dispose() {
     _promptController.dispose();
-    // CORREÇÃO: Removido GemmaService.dispose() pois não existe mais no novo serviço
     super.dispose();
   }
 
@@ -74,33 +68,12 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       ),
       body: Column(
         children: [
-          // Mensagem de status/erro
-          if (_statusMessage.isNotEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              color: Colors.red.shade50,
-              child: Text(_statusMessage,
-                  style: TextStyle(color: Colors.red.shade800)),
-            ),
-
-          // Loading inicial
-          if (_isInitializing)
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Row(children: [
-                CircularProgressIndicator(strokeWidth: 2),
-                SizedBox(width: 12),
-                Text("Connecting to Gemma 4..."),
-              ]),
-            ),
-
           // Lista de mensagens
           Expanded(
             child: _messages.isEmpty
                 ? const Center(
                     child: Text(
-                      "Ask anything about reducing\nfood waste 🌱",
+                      "Ask anything about stock\nand product locations 🌱",
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.grey, fontSize: 16),
                     ),
@@ -147,7 +120,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               child: Row(children: [
                 CircularProgressIndicator(strokeWidth: 2, color: Colors.green),
                 SizedBox(width: 8),
-                Text("Gemma 4 is thinking...",
+                Text("Gemma 4 is checking data...",
                     style: TextStyle(color: Colors.grey)),
               ]),
             ),
@@ -165,7 +138,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                   child: TextField(
                     controller: _promptController,
                     decoration: const InputDecoration(
-                      hintText: "What to do with near-expiry milk?",
+                      hintText: "Do we have organic milk?",
                       border: OutlineInputBorder(),
                       contentPadding:
                           EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -178,7 +151,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
-                  onPressed: (_isThinking || _isInitializing) ? null : _askGemma,
+                  onPressed: _isThinking ? null : _askGemma,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                     foregroundColor: Colors.white,
@@ -193,7 +166,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
           const Padding(
             padding: EdgeInsets.only(bottom: 8),
-            child: Text("Powered by Gemma 4 ",
+            child: Text("Powered by Gemma 4",
                 style: TextStyle(fontSize: 11, color: Colors.grey)),
           ),
         ],
@@ -201,3 +174,4 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     );
   }
 }
+
