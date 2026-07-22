@@ -1,126 +1,150 @@
 import 'dart:convert';
-import 'package:logiflow/core/database_helper.dart';
-import 'package:logiflow/models/product.dart';
+ import 'package:logiflow/core/database_helper.dart';
+ import 'package:logiflow/models/product.dart';
 
-enum BotCommand {
-  showProduct,
-  listProducts,
-  searchStock,
-  updateStock,
-  help,
-  chat
-}
+ enum BotCommand {
+   showProduct,
+   listProducts,
+   searchStock,
+   updateStock,
+   help,
+   chat,
+ }
 
-class BotResponse {
-  final BotCommand command;
-  final String message;
-  final List<Product>? products;
-  final Map<String, dynamic>? payload;
+ class BotResponse {
+   final BotCommand command;
+   final String message;
+   final List<Product>?  products;
+   final Map<String, dynamic>?  payload;
 
-  BotResponse({
-    required this.command,
-    required this.message,
-    this.products,
-    this.payload,
-  });
-}
+   BotResponse({
+     requiredthis.command,
+     requiredthis.message,
+     this.products,
+     this.payload,
+   });
+ }
 
-class LogiFlowBotService {
-  static bool isInitialized = false;
+ class GemmaService {
+   static bool isInitialized = false;
 
-  static Future<void> initialize() async {
-    isInitialized = true;
-    print("🤖 LogiFlow Local Bot Ready!");
-  }
+   static Future<void> initialize() async {
+     isInitialized = true;
+     print("🤖 Gemma Service (LogiFlow Bot) Ready!");
+   }
 
-  static Future<BotResponse> execute(String userInput) async {
-    if (!isInitialized) {
-      return BotResponse(command: BotCommand.chat, message: "Bot is loading...");
-    }
+   static Future<BotResponse> execute(String userInput) async {
+     if (!isInitialized) {
+       return BotResponse(
+         command: BotCommand.chat,
+         message: "Bot is loading...",
+       );
+     }
 
-    final input = userInput.toLowerCase();
-    final db = DatabaseHelper.instance;
+     final input = userInput.toLowerCase().trim();
+     final db = DatabaseHelper.instance;
 
-    try {
-      if (input.contains("help") || input.contains("how") || input.contains("command")) {
-        return BotResponse(
-          command: BotCommand.help,
-          message: "Commands: 'find [item]', 'add [qty] [item]', 'set [item] to [status]', 'list all'.",
-        );
-      }
+     try {
+       // ==================== HELP ====================
+       if (input.contains("help") || 
+           input.contains("help") || 
+           input.contains("how") || 
+           input.contains("command")) {
+         return BotResponse(
+           command: BotCommand.help,
+           message: "Available commands:\n"
+               "• 'find milk' or 'do you have milk?'\n"
+               "• 'add 10 apples' or 'add 5 bread'\n"
+               "• 'update milk to 20' or 'set 15 avocado'\n"
+               "• 'list' or 'show all'",
+         );
+       }
 
-      if (input.contains("add") || input.contains("set") || input.contains("change") || input.contains("update")) {
-        final numberRegex = RegExp(r'\d+');
-        final numberMatch = numberRegex.firstMatch(input);
-        final int? newQty = numberMatch != null ? int.parse(numberMatch.group(0)!) : null;
+       // ==================== UPDATE STOCK ====================
+       if (RegExp(r'(add|add|set|change|update|change|put)').hasMatch(input)) {
+         final numberRegex = RegExp(r'\d+');
+         final match = numberRegex.firstMatch(input);
+         final int?  quantity = match != null ?  int.tryParse(match.group(0)!) : null;
 
-        String? newStatus;
-        if (input.contains("cleaned") || input.contains("clean")) newStatus = "Cleaned";
-        if (input.contains("packaged") || input.contains("pack")) newStatus = "Packaged";
-        if (input.contains("new")) newStatus = "New";
+        String? newCondition;
+        if (input.contains("limpo") || input.contains("clean")) newCondition = "Cleaned";
+        if (input.contains("embalado") || input.contains("pack")) newCondition = "Packaged";
+        if (input.contains("novo") || input.contains("new")) newCondition = "New";
 
-        String cleanQuery = input
-            .replaceAll(RegExp(r'\d+'), '')
-            .replaceAll(RegExp(r'(add|set|change|update|to|units|qty|quantity|cleaned|packaged|new|apple|milk|avocado|bread|item|item|the)'), '')
+        // Extract product name by removing commands and numbers
+        String productName = input
+            .replaceAll(RegExp(r'(adicionar|add|set|alterar|atualizar|mudar|colocar|para|unidades|qty|quantity|limpo|clean|embalado|pack|novo|new|\d+)'), '')
             .trim();
 
-        if (cleanQuery.isNotEmpty) {
-          final products = await db.searchProducts(cleanQuery);
+        if (productName.isNotEmpty) {
+          final products = await db.searchProducts(productName);
+          
           if (products.isNotEmpty) {
-            final targetProduct = products.first;
+            final target = products.first;
             await db.updateProduct(
-              targetProduct.id, 
-              qty: newQty, 
-              condition: newStatus
+              target.id,
+              qty: quantity,
+              condition: newCondition,
             );
-            String statusMsg = newQty != null ? "$newQty units " : "";
-            statusMsg += newStatus != null ? "and status to $newStatus" : "";
+
+            final String status = [
+              if (quantity != null) "$quantity units",
+              if (newCondition != null) "status: $newCondition",
+            ].join(" and ");
 
             return BotResponse(
               command: BotCommand.updateStock,
-              message: "Done! Updated ${targetProduct.name} ($statusMsg).",
-              payload: {"id": targetProduct.id},
+              message: "✅ Updated! ${target.name} ${status.isNotEmpty ? '($status)' : ''}.",
+              payload: {"id": target.id},
             );
           }
         }
-        return BotResponse(command: BotCommand.chat, message: "I couldn't find that item to update.");
+        return BotResponse(
+          command: BotCommand.chat,
+          message: "I couldn't identify the item to update.",
+        );
       }
 
-      if (input.contains("find") || input.contains("is there") || input.contains("where") || input.contains("search")) {
+      // ==================== SEARCH / FIND ====================
+      if (RegExp(r'(encontrar|tem|onde|buscar|listar|mostrar|find|search)').hasMatch(input)) {
         String searchTerm = input
-            .replaceAll(RegExp(r'(find|is there|where is|search|show|me|the|a|an|?)'), '')
+            .replaceAll(RegExp(r'(encontrar|tem|onde está|buscar|listar|mostrar|find|search|me|o|a|os|as|de|do|da)'), '')
             .trim();
 
-        if (searchTerm.isEmpty) searchTerm = "%";
+        if (searchTerm.isEmpty) searchTerm = "%";  final List<Product> found = await db.searchProducts(searchTerm);
 
-        final List<Product> foundItems = await db.searchProducts(searchTerm);
-
-        if (foundItems.isNotEmpty) {
+        if (found.isNotEmpty) {
           return BotResponse(
             command: BotCommand.showProduct,
-            message: "I found ${foundItems.length} item(s) in the feed:",
-            products: foundItems,
+            message: "I found ${found.length} item(s):",
+            products: found,
           );
         }
       }
 
+      // ==================== QUICK SEARCH (fallback) ====================
       final List<Product> quickSearch = await db.searchProducts(input);
       if (quickSearch.isNotEmpty) {
         return BotResponse(
           command: BotCommand.showProduct,
-          message: "Found these items:",
+          message: "Results for '$userInput':",
           products: quickSearch,
         );
       }
 
+      // ==================== DEFAULT ====================
       return BotResponse(
         command: BotCommand.chat,
-        message: "I'm here to help you manage your stock and find items in the feed. Try saying 'find milk' or 'add 10 apples'.",
+        message: "I didn't quite understand that 😕\n"
+            "Try: 'find milk', 'add 10 apples', or 'help'.",
       );
 
     } catch (e) {
-      print("Bot Error: $e");
-      return BotResponse(command: BotCommand.chat, message: "Error accessing the database.");
+      print("❌ Gemma Bot Error: $e");
+      return BotResponse(
+        command: BotCommand.chat,
+        message: "An error occurred while accessing the database.",
+      );
     }
   }
-}
+ }
