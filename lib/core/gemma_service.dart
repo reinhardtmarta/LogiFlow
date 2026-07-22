@@ -30,7 +30,7 @@ this.payload
 }
 
 // 3. Gemma Main Service
-class LogiFlowGemmaService {
+class GemmaService {
 static const String _apiKey = 'GEMINI_API_KEY';
 
  static const String _modelName = 'gemma-4-26b-a4b';
