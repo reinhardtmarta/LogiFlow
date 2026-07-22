@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/gemma_service.dart'; // Arquivo onde está o askgemmma
+import '../../core/gemma_service.dart';
 import '../../models/user.dart';
 
 class AiAssistantScreen extends StatefulWidget {
@@ -11,10 +11,12 @@ class AiAssistantScreen extends StatefulWidget {
 }
 
 class _AiAssistantScreenState extends State<AiAssistantScreen> {
+  // Instância do serviço criada para resolver o erro de "getter not defined"
+  final LogiFlowGemmaService _gemmaService = LogiFlowGemmaService();
+
   final TextEditingController _promptController = TextEditingController();
   final List<Map<String, String>> _messages = [];
   bool _isThinking = false;
-  
 
   Future<void> _askGemma() async {
     final q = _promptController.text.trim();
@@ -27,14 +29,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     });
 
     try {
-      // 1. O prompt customizado foi removido daqui para evitar conflito com as 
-      // System Instructions rígidas que já estão dentro do LogiFkGemmaService.
-      // 2. Chamada correta da função criada por nós: processQuery
       final result = await _gemmaService.processQuery(q);
 
       if (mounted) {
         setState(() {
-          // Acessamos o campo "message" do objeto BotResponse retornado
           _messages.add({"role": "gemma", "text": result.message});
           _isThinking = false;
         });
@@ -42,7 +40,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _messages.add({"role": "gemma", "text": "Erro de processamento na comunicação com a IA."});
+          _messages.add({
+            "role": "gemma",
+            "text": "Erro de processamento na comunicação com a IA."
+          });
           _isThinking = false;
         });
       }
@@ -65,7 +66,6 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       ),
       body: Column(
         children: [
-          // Lista de mensagens
           Expanded(
             child: _messages.isEmpty
                 ? const Center(
@@ -110,7 +110,6 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                   ),
           ),
 
-          // Thinking indicator
           if (_isThinking)
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -122,12 +121,13 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               ]),
             ),
 
-          // Input
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.white,
-              boxShadow: [BoxShadow(color: Colors.grey.shade300, blurRadius: 4)],
+              boxShadow: [
+                BoxShadow(color: Colors.grey.shade300, blurRadius: 4)
+              ],
             ),
             child: Row(
               children: [
@@ -171,4 +171,3 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     );
   }
 }
-
