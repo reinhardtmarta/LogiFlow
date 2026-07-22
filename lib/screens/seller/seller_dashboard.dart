@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/user.dart';
 import '../../models/product.dart';
 import '../../core/database_helper.dart';
-import '../../core/gemma_service.dart'; // Certifique-se que o caminho está correto
+import '../../core/gemma_service.dart'; // Certifique-se de que este é o nome do arquivo da classe LogiFkGemmaService
 import 'add_product_screen.dart';
 
 class SellerDashboard extends StatefulWidget {
@@ -17,6 +17,9 @@ class _SellerDashboardState extends State<SellerDashboard> {
   List<Product> _products = [];
   String _gemmaInsight = "Loading smart suggestions from Gemma...";
   bool _isLoading = true;
+
+  // 1. Instanciação correta do serviço da IA
+  final LogiFkGemmaService _gemmaService = LogiFkGemmaService();
 
   @override
   void initState() {
@@ -34,26 +37,26 @@ class _SellerDashboardState extends State<SellerDashboard> {
   }
 
   Future<void> _generateGemmaAnalysis(List<Product> products) async {
-    // 1. Monta o prompt
     String productList = products.isNotEmpty 
         ? products.map((p) => '${p.name} (${p.quantity} units, expires ${p.expiryDate.toString().substring(0,10)})').join(', ')
         : "no products";
         
-    String prompt = "Act as LogiFlow AI. Products: $productList. Give 2-3 practical waste reduction tips.";
+    // 2. Prompt alinhado com as System Instructions da IA (Foco em dados reais, respostas curtas JSON)
+    String prompt = "Analyze this stock and alert about near expiry items: $productList";
 
     try {
-      // 2. CORREÇÃO: Usando o novo nome da classe e o novo método 'execute'
-      final response = await LogiFlowBotService.execute(prompt);
+      // 3. Chamada correta do método criado na classe LogiFkGemmaService
+      final response = await _gemmaService.processQuery(prompt);
 
       if (mounted) {
         setState(() {
-          // 3. CORREÇÃO: Como o retorno é um BotResponse, acessamos o campo '.message'
+          // O retorno já é um objeto BotResponse decodificado, basta ler o message
           _gemmaInsight = response.message;
         });
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _gemmaInsight = "Could not load insights.");
+        setState(() => _gemmaInsight = "Could not load insights. Structural error.");
       }
     }
   }
@@ -98,7 +101,7 @@ class _SellerDashboardState extends State<SellerDashboard> {
                       color: Colors.green[50],
                       child: Padding(
                         padding: const EdgeInsets.all(16), 
-                        child: Text(_gemmaInsight), // Aqui o texto é exibido corretamente
+                        child: Text(_gemmaInsight), 
                       ),
                     ),
                     const SizedBox(height: 24),
