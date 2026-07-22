@@ -23,6 +23,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
   String _condition = "Fresh";
   bool _isProducer = true;
   String _category = "Fruits & Vegetables";
+  bool _isRescue = false;
   bool _isLoading = false;
 
   File? _selectedImage;
@@ -60,8 +61,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
     setState(() => _isLoading = true);
 
+    // Construtor completamente alinhado com o arquivo product.dart
     final product = Product(
-      userId: widget.user.id!,
+      userId: widget.user.id!, // O id do usuário logado é passado aqui
       name: _nameController.text.trim(),
       quantity: int.tryParse(_qtyController.text) ?? 1,
       price: double.tryParse(_priceController.text) ?? 0.0,
@@ -73,8 +75,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
           : _addressController.text.trim(),
       imagePath: _selectedImage?.path,
       category: _category,
+      isRescue: _isRescue,
     );
 
+    // Inserção real no banco de dados SQLite
     await DatabaseHelper.instance.insertProduct(product);
 
     setState(() => _isLoading = false);
@@ -99,7 +103,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // Image picker
             GestureDetector(
               onTap: _pickImage,
               child: Container(
@@ -217,6 +220,12 @@ class _AddProductScreenState extends State<AddProductScreen> {
               title: const Text("I am the local producer/farmer"),
               value: _isProducer,
               onChanged: (v) => setState(() => _isProducer = v),
+            ),
+
+            SwitchListTile(
+              title: const Text("This is a Rescue / Zero Waste item"),
+              value: _isRescue,
+              onChanged: (v) => setState(() => _isRescue = v),
             ),
 
             const SizedBox(height: 30),
