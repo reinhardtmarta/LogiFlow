@@ -19,7 +19,7 @@ class _SellerDashboardState extends State<SellerDashboard> {
   bool _isLoading = true;
 
   // 1. Instanciação correta do serviço da IA
-  final GemmaService _gemmaService = GemmaService();
+  final LogiFlowGemmaService _gemmaService = GemmaService();
 
   @override
   void initState() {
