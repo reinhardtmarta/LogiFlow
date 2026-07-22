@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:logiflow/core/database_helper.dart';
 import 'package:logiflow/models/product.dart';
 
@@ -14,8 +16,8 @@ enum BotCommand {
 // 2. O objeto que o BOT retorna
 class BotResponse {
   final BotCommand command;
-  final String message;
-  final List<Product>? products;
+  final String message; // A resposta em texto para o usuário
+  final List<Product>? products; // Os produtos reais encontrados no banco
   final Map<String, dynamic>? payload; 
 
   BotResponse({
@@ -27,119 +29,119 @@ class BotResponse {
 }
 
 class LogiFlowBotService {
+  static const String _apiKey = String.fromEnvironment('GEMINI_API_KEY', defaultValue: '');
+  static GenerativeModel? _model;
   static bool isInitialized = false;
 
-  // Inicialização agora é apenas um sinalizador de que o Bot está pronto
+  // Instrução de Sistema que define o comportamento e o formato
+  static const String _systemInstruction = """
+  You are the LogiFlow Intelligent Agent. 
+  Your job is to act as a bridge between the user and the inventory database.
+  
+  RULES:
+  1. You will be provided with a list of real products (The Inventory).
+  2. Use ONLY the provided inventory to answer questions about stock or items.
+  3. If a user asks to update something (e.g., 'add 10 apples'), return an 'updateStock' command.
+  4. If a user asks for a product, return 'showProduct' and the product data.
+  5. Always respond in valid JSON format.
+
+  JSON FORMAT:
+  {
+    "command": "showProduct" | "listProducts" | "searchStock" | "updateStock" | "help" | "chat",
+    "message": "Your friendly response in English or Portuguese",
+    "payload": { "id": 1, "qty": 10, "item_name": "name", "status": "cleaned" }
+  }
+  """;
+
   static Future<void> initialize() async {
-    isInitialized = true;
-    print("🤖 LogiFlow Local Bot Ready (Offline Mode - No API)");
+    if (isInitialized) return;
+    try {
+      if (_apiKey.isEmpty) throw Exception('API Key missing!');
+
+      _model = GenerativeModel(
+        model: 'gemini-1.5-flash', // Flash é perfeito para RAG (rápido e barato)
+        apiKey: _apiKey,
+        systemInstruction: Content.system(_systemInstruction),
+      );
+
+      isInitialized = true;
+      print("🤖 LogiFlow RAG Bot Ready!");
+    } catch (e) {
+      print("❌ Bot Init Error: $e");
+      rethrow;
+    }
   }
 
-  // O MÉTODO PRINCIPAL: O "Cérebro" baseado em padrões de texto (Regex)
   static Future<BotResponse> execute(String userInput) async {
-    if (!isInitialized) {
+    if (!isInitialized || _model == null) {
       return BotResponse(command: BotCommand.chat, message: "Bot is loading...");
     }
 
-    final input = userInput.toLowerCase();
-    final db = DatabaseHelper.instance;
-
     try {
-      // --- CASO 1: AJUDA (HELP) ---
-      if (input.contains("help") || input.contains("how") || input.contains("command")) {
-        return BotResponse(
-          command: BotCommand.help,
-          message: "Commands: 'find [item]', 'add [qty] [item]', 'set [item] to [status]', 'list all'.",
-        );
-      }
-
-      // --- CASO 2: ATUALIZAÇÃO DE ESTOQUE (UPDATE INTENT) ---
-      // Detecta: "add 10 apples", "set milk to 5", "change apple to cleaned"
-      if (input.contains("add") || input.contains("set") || input.contains("change") || input.contains("update")) {
-        
-        // 1. Extrair número (quantidade)
-        final numberRegex = RegExp(r'\d+');
-        final numberMatch = numberRegex.firstMatch(input);
-        final int? newQty = numberMatch != null ? int.parse(numberMatch.group(0)!) : null;
-
-        // 2. Detectar status
-        String? newStatus;
-        if (input.contains("cleaned") || input.contains("clean")) newStatus = "Cleaned";
-        if (input.contains("packaged") || input.contains("pack")) newStatus = "Packaged";
-        if (input.contains("new")) newStatus = "New";
-
-        // 3. Limpar a frase para pegar o NOME do produto
-        // Remove comandos, números e status para sobrar apenas o nome do item
-        String cleanQuery = input
-            .replaceAll(RegExp(r'\d+'), '') 
-            .replaceAll(RegExp(r'(add|set|change|update|to|units|qty|quantity|cleaned|packaged|new|item|the|is|at|at|to)'), '')
-            .trim();
-
-        if (cleanQuery.isNotEmpty) {
-          final products = await db.searchProducts(cleanQuery);
-          
-          if (products.isNotEmpty) {
-            final targetProduct = products.first;
-            
-            // Atualiza o banco de dados real
-            await db.updateProduct(
-              targetProduct.id, 
-              qty: newQty, 
-              condition: newStatus
-            );
-
-            String statusMsg = newQty != null ? "$newQty units " : "";
-            statusMsg += newStatus != null ? "and status to $newStatus" : "";
-
-            return BotResponse(
-              command: BotCommand.updateStock,
-              message: "Done! Updated ${targetProduct.name} ($statusMsg).",
-              payload: {"id": targetProduct.id},
-            );
-          }
-        }
-        return BotResponse(command: BotCommand.chat, message: "I couldn't find that item to update.");
-      }
-
-      // --- CASO 3: BUSCA DE PRODUTOS (SEARCH INTENT) ---
-      if (input.contains("find") || input.contains("is there") || input.contains("where") || input.contains("search")) {
-        
-        String searchTerm = input
-            .replaceAll(RegExp(r'(find|is there|where is|search|show|me|the|a|an|?)'), '')
-            .trim();
-
-        if (searchTerm.isEmpty) searchTerm = "%";
-
-        final List<Product> foundItems = await db.searchProducts(searchTerm);
-
-        if (foundItems.isNotEmpty) {
-          return BotResponse(
-            command: BotCommand.showProduct,
-            message: "I found ${foundItems.length} item(s) in the feed:",
-            products: foundItems,
-          );
+      // --- PASSO 1: BUSCAR OS DADOS REAIS DO BANCO (O SEGREDO DO RAG) ---
+      final db = DatabaseHelper.instance;
+      final List<Product> allProducts = await db.getAllProducts();
+      
+      // Transformamos a lista de produtos em uma string de texto para a IA ler
+      String inventoryContext = "CURRENT INVENTORY:\n";
+      if (allProducts.isEmpty) {
+        inventoryContext += "No products in stock.";
+      } else {
+        for (var p in allProducts) {
+          inventoryContext += "- ID: ${p.id}, Name: ${p.name}, Qty: ${p.quantity}, Price: ${p.price}, Status: ${p.condition}, Expiry: ${p.expiryDate}\n";
         }
       }
 
-      // --- CASO 4: BUSCA DIRETA (Caso o usuário digite apenas o nome) ---
-      final List<Product> quickSearch = await db.searchProducts(input);
-      if (quickSearch.isNotEmpty) {
-        return BotResponse(
-          command: BotCommand.showProduct,
-          message: "Found these items:",
-          products: quickSearch,
-        );
+      // --- PASSO 2: MONTAR O PROMPT COM O CONTEXTO ---
+      // Enviamos o contexto do banco + a pergunta do usuário
+      final fullPrompt = """
+$inventoryContext
+
+USER REQUEST: $userInput
+""";
+
+      // --- PASSO 3: CHAMADA DA IA ---
+      final response = await _model!.generateContent([Content.text(fullPrompt)]);
+      final String rawJson = response.text ?? '{}';
+      
+      // Limpeza de Markdown (remove ```json ... ```)
+      final String cleanJson = rawJson.replaceAll('```json', '').replaceAll('```', '').trim();
+      final Map<String, dynamic> decoded = jsonDecode(cleanJson);
+
+      // Mapeamento do comando
+      BotCommand command;
+      switch (decoded['command']) {
+        case 'showProduct': command = BotCommand.showProduct; break;
+        case 'listProducts': command = BotCommand.listProducts; break;
+        case 'searchStock': command = BotCommand.searchStock; break;
+        case 'updateStock': command = BotCommand.updateStock; break;
+        case 'help': command = BotCommand.help; break;
+        default: command = BotCommand.chat;
       }
 
-      // --- CASO 5: CONVERSA (CHAT FALLBACK) ---
+      // --- PASSO 4: TRATAR O RESULTADO ---
+      
+      // Se o comando for mostrar produto, buscamos os detalhes reais do banco usando o ID que a IA sugeriu
+      List<Product>? products;
+      if (command == BotCommand.showProduct && decoded['payload'] != null) {
+        final String? idStr = decoded['payload']['id']?.toString();
+        if (idStr != null) {
+          final int targetId = int.parse(idStr);
+          final allItems = await db.getAllProducts();
+          products = allItems.where((p) => p.id == targetId).toList();
+        }
+      }
+
       return BotResponse(
-        command: BotCommand.chat,
-        message: "I'm here to help you manage your stock and find items in the feed. Try saying 'find milk' or 'add 10 apples'.",
+        command: command,
+        message: decoded['message'] ?? '',
+        products: products,
+        payload: decoded['payload'],
       );
 
     } catch (e) {
       print("Bot Error: $e");
-      return BotResponse(command: BotCommand.chat, message: "Error accessing the local database.");
+      return BotResponse(command: BotCommand.chat, message: "Error accessing inventory data.");
     }
   }
 }
