@@ -13,9 +13,12 @@ import 'models/user.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Gemma (non-blocking)
-  GemmaService.initialize().catchError((_) {});
+  // Primeiro, certifique-se de que o import está no topo do arquivo!
+import 'package:logiflow/services/gemma_service.dart'; 
 
+// ... dentro do main
+LogiFlowBotService.initialize().catchError((_) {});
+  
   runApp(const LogiFlowApp());
 }
 
