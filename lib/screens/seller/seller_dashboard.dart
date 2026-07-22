@@ -18,9 +18,6 @@ class _SellerDashboardState extends State<SellerDashboard> {
   String _gemmaInsight = "Loading smart suggestions from Gemma...";
   bool _isLoading = true;
 
-  // 1. Instanciação correta do serviço da IA
-  final LogiFlowGemmaService _gemmaService = LogiFlowGemmaService();
-
   @override
   void initState() {
     super.initState();
