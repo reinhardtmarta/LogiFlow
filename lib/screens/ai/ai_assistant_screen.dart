@@ -25,6 +25,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
   Future<void> _initGemma() async {
     try {
+      // Corrigido para LogiFlowBotService
       await LogiFlowBotService.initialize();
       setState(() => _statusMessage = "");
     } catch (e) {
@@ -46,10 +47,12 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
     final prompt = "You are LogiFlow AI helping reduce food waste.\nUser role: ${widget.user.isSeller ? 'Seller' : 'Consumer'}.\nQuestion: $q\nGive practical advice in 2-4 sentences.";
 
-    final result = await GemmaService.generateResponse(prompt);
+    // CORREÇÃO: Nome da classe mudou para LogiFlowBotService e método para execute
+    final result = await LogiFlowBotService.execute(prompt);
 
     setState(() {
-      _messages.add({"role": "gemma", "text": result});
+      // CORREÇÃO: Como o retorno é um objeto BotResponse, precisamos usar .message
+      _messages.add({"role": "gemma", "text": result.message});
       _isThinking = false;
     });
   }
@@ -57,7 +60,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   @override
   void dispose() {
     _promptController.dispose();
-    GemmaService.dispose();
+    // CORREÇÃO: Removido GemmaService.dispose() pois não existe mais no novo serviço
     super.dispose();
   }
 
@@ -190,7 +193,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
           const Padding(
             padding: EdgeInsets.only(bottom: 8),
-            child: Text("Powered by Gemma 4 via OpenRouter",
+            child: Text("Powered by Gemma 4 ",
                 style: TextStyle(fontSize: 11, color: Colors.grey)),
           ),
         ],
