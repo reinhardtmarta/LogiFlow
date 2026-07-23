@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/database_helper.dart';
+import '../../services/product_service.dart';
 import '../../models/product.dart';
 import '../chat/chat_screen.dart';
 import '../../models/user.dart';
@@ -15,6 +15,7 @@ class _SearchScreenState extends State<SearchScreen> {
   List<Product> _results = [];
   final _controller = TextEditingController();
   bool _loading = false;
+  final ProductService _productService = ProductService();
 
   Future<void> _search(String query) async {
     if (query.trim().isEmpty) {
@@ -22,8 +23,7 @@ class _SearchScreenState extends State<SearchScreen> {
       return;
     }
     setState(() => _loading = true);
-    final all = await DatabaseHelper.instance.getAllProducts();
-    final filtered = all.where((p) => p.name.toLowerCase().contains(query.toLowerCase())).toList();
+    final filtered = await _productService.searchProducts(query);
     setState(() {
       _results = filtered;
       _loading = false;
@@ -54,23 +54,27 @@ class _SearchScreenState extends State<SearchScreen> {
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : _results.isEmpty
-                    ? const Center(child: Text("No results. Try another search."))
+                    ? const Center(
+                        child: Text("No results. Try another search."))
                     : ListView.builder(
                         itemCount: _results.length,
                         itemBuilder: (context, i) {
                           final p = _results[i];
                           return ListTile(
                             title: Text(p.name),
-                            subtitle: Text("${p.quantity} units • Expires: ${p.expiryDate.toString().substring(0,10)}"),
-                            trailing: Text("\$${p.price.toStringAsFixed(2)}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                            subtitle: Text(
+                                "${p.quantity} units • Expires: ${p.expiryDate.toString().substring(0, 10)}"),
+                            trailing: Text(
+                                "\$${p.price.toStringAsFixed(2)}",
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold)),
                             onTap: user == null
                                 ? null
                                 : () => Navigator.push(
                                       context,
                                       MaterialPageRoute(
                                         builder: (_) => ChatScreen(
-                                          currentUser: user,
-                                          receiverId: p.userId,
+                                          receiverId: p.userId.toString(),
                                           receiverName: "Seller",
                                         ),
                                       ),
@@ -82,5 +86,11 @@ class _SearchScreenState extends State<SearchScreen> {
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 }
