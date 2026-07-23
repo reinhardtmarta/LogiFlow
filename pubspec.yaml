@@ -27,16 +27,16 @@ dependencies:
 
   # AI (Google Generative AI - Gemini/Gemma)
   google_generative_ai: ^0.4.7
-  http: ^1.2.0  
+  http: ^1.2.0
+  
+  # Supabase
+  supabase_flutter: ^2.5.0
 
   # Optional but recommended for icons later
   # flutter_launcher_icons: ^0.13.1
 
   # For better state management in future
   # provider: ^6.1.2
-
-  # Networking (if you later connect to backend)
-  # http: ^1.2.0
 
   # Maps (future)
   # google_maps_flutter: ^2.5.0
