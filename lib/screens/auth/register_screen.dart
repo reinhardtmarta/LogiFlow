@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/database_helper.dart';
+import 'package:logiflow/services/supabase_service.dart';
 import '../../models/user.dart';
 import 'login_screen.dart';
 
@@ -21,8 +21,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isLoading = false;
 
   Future<void> _register() async {
-    if (_nameController.text.isEmpty || 
-        _emailController.text.isEmpty || 
+    if (_nameController.text.isEmpty ||
+        _emailController.text.isEmpty ||
         _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please fill all required fields")),
@@ -32,20 +32,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() => _isLoading = true);
 
-    final user = User(
-      name: _nameController.text.trim(),
-      email: _emailController.text.trim(),
-      password: _passwordController.text.trim(),
-      phone: _phoneController.text.trim(),
-      address: _addressController.text.trim(),
-      isSeller: _isSeller,
-    );
+    try {
+      // Registra no Auth do Supabase
+      final res = await supabaseService.signUp(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
+        _nameController.text.trim(),
+      );
 
-    final success = await DatabaseHelper.instance.registerUser(user);
+      // Salva os dados adicionais na tabela `profiles`
+      await supabaseService.saveUserData({
+        'email': _emailController.text.trim(),
+        'name': _nameController.text.trim(),
+        'phone': _phoneController.text.trim(),
+        'address': _addressController.text.trim(),
+        'is_seller': _isSeller ? 1 : 0,
+      });
 
-    setState(() => _isLoading = false);
-
-    if (success) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Account created successfully! Please login.")),
@@ -55,12 +58,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
           MaterialPageRoute(builder: (context) => const LoginScreen()),
         );
       }
-    } else {
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Email already exists")),
+          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

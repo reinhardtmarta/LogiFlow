@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/database_helper.dart';
+import 'package:logiflow/services/supabase_service.dart';
 import '../../models/user.dart';
 import '../home/home_screen.dart';
 import 'register_screen.dart';
@@ -19,14 +19,30 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _login() async {
     setState(() => _isLoading = true);
 
-    final user = await DatabaseHelper.instance.loginUser(
-      _emailController.text.trim(),
-      _passwordController.text.trim(),
-    );
+    try {
+      final res = await supabaseService.signIn(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
+      );
 
-    setState(() => _isLoading = false);
+      // Verifica se o usuário autenticou corretamente
+      final authUser = supabaseService.client.auth.currentUser;
 
-    if (user != null) {
+      if (authUser == null) {
+        throw Exception('Authentication failed');
+      }
+
+      // Cria um User local mínimo para navegar até a Home.
+      // Idealmente você deve carregar o perfil completo da tabela `profiles`.
+      final user = User(
+        name: '',
+        email: authUser.email ?? _emailController.text.trim(),
+        password: '',
+        phone: '',
+        address: '',
+        isSeller: false,
+      );
+
       if (mounted) {
         Navigator.pushReplacement(
           context,
@@ -35,15 +51,17 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
       }
-    } else {
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Invalid email or password"),
+          SnackBar(
+            content: Text(e.toString()),
             backgroundColor: Colors.red,
           ),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
