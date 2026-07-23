@@ -23,7 +23,7 @@ Future<void> main() async {
 
   if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
     throw Exception(
-      'SUPABASE_URL e SUPABASE_ANON_KEY não foram fornecidos. Passe-os com --dart-define (ex: flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...) ou configure seu proc[...]
+      'SUPABASE_URL e SUPABASE_ANON_KEY não foram fornecidos. Passe-os com --dart-define (ex: flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...)'
     );
   }
 
