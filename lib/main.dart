@@ -11,20 +11,13 @@ import 'package:logiflow/screens/feed/general_feed_screen.dart';
 import 'package:logiflow/screens/search/search_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Supabase.initialize(
-    url: 'https://mumtyljgtckrulajbwtp.supabase.co',
-    anonKey: 'SUA_ANON_KEY',
-  );
-  runApp(MyApp());
-}
-
-final supabase = Supabase.instance.client;
+// Use um getter para pegar o client quando necessário (evita acessar antes da inicialização)
+SupabaseClient get supabase => Supabase.instance.client;
 
 // Cadastro
 Future<void> signUp(String email, String password, String nome) async {
-  final response = await supabase.auth.signUp(
+  // Ajuste o tratamento de resposta/erros conforme a versão do pacote
+  await supabase.auth.signUp(
     email: email,
     password: password,
     data: {'nome': nome}, // dados extras
@@ -43,17 +36,28 @@ Future<void> signIn(String email, String password) async {
 Future<void> saveUserData(Map<String, dynamic> data) async {
   await supabase.from('profiles').upsert(data);
 }
-void main() async {
-  // Garante que os plugins do Flutter estejam prontos antes de iniciar o Bot
+
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Inicializa o Bot de forma segura
-  try {
-    print("✅ LogiFlow  Loading");
-  } catch (e) {
-    print("❌ Error: $e");
+  // Pega as variáveis em tempo de compilação via --dart-define.
+  // Em CI/CD você pode passar os secrets do repositório para o comando de build.
+  const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+  const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+
+  if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
+    // Mensagem clara para ajudar a diagnosticar se as chaves não foram passadas
+    throw Exception(
+      'SUPABASE_URL e SUPABASE_ANON_KEY não foram fornecidos. Passe-os com --dart-define (ex: flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...) ou configure seu processo de build para injetar as secrets.'
+    );
   }
-  
+
+  // Inicializa o Supabase antes de rodar a aplicação
+  await Supabase.initialize(
+    url: supabaseUrl,
+    anonKey: supabaseAnonKey,
+  );
+
   runApp(const LogiFlowApp());
 }
 
