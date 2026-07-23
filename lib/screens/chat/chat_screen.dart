@@ -3,6 +3,8 @@ import '../../core/database_helper.dart';
 import 'package:logiflow/services/message_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+final messageService = MessageService();
+
 class ChatScreen extends StatefulWidget {
   final String receiverId;
   final String receiverName;
