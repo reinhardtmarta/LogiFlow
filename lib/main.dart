@@ -14,39 +14,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 // Use um getter para pegar o client quando necessário (evita acessar antes da inicialização)
 SupabaseClient get supabase => Supabase.instance.client;
 
-// Cadastro
-Future<void> signUp(String email, String password, String nome) async {
-  // Ajuste o tratamento de resposta/erros conforme a versão do pacote
-  await supabase.auth.signUp(
-    email: email,
-    password: password,
-    data: {'nome': nome}, // dados extras
-  );
-}
-
-// Login
-Future<void> signIn(String email, String password) async {
-  await supabase.auth.signInWithPassword(
-    email: email,
-    password: password,
-  );
-}
-
-// Salvar dados do usuário (exemplo)
-Future<void> saveUserData(Map<String, dynamic> data) async {
-  await supabase.from('profiles').upsert(data);
-}
-
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Pega as variáveis em tempo de compilação via --dart-define.
-  // Em CI/CD você pode passar os secrets do repositório para o comando de build.
   const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
   const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
   if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
-    // Mensagem clara para ajudar a diagnosticar se as chaves não foram passadas
     throw Exception(
       'SUPABASE_URL e SUPABASE_ANON_KEY não foram fornecidos. Passe-os com --dart-define (ex: flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...) ou configure seu processo de build para injetar as secrets.'
     );
