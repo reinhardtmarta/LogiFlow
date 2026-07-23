@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../models/product.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../models/user.dart';
 import '../../screens/chat/chat_screen.dart';
 
 class GeneralFeedScreen extends StatefulWidget {
-  const GeneralFeedScreen({super.key});
+  final User user;
+  const GeneralFeedScreen({super.key, required this.user});
 
   @override
   State<GeneralFeedScreen> createState() => _GeneralFeedScreenState();
