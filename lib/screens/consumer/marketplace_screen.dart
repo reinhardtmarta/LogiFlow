@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/user.dart';
 import '../../models/product.dart';
-import '../../core/database_helper.dart';
+import '../../services/product_service.dart';
 import '../chat/chat_screen.dart';
 
 class MarketplaceScreen extends StatefulWidget {
@@ -14,8 +14,10 @@ class MarketplaceScreen extends StatefulWidget {
 
 class _MarketplaceScreenState extends State<MarketplaceScreen> {
   List<Product> _products = [];
+  List<Product> _filteredProducts = [];
   bool _isLoading = true;
   final TextEditingController _searchController = TextEditingController();
+  final ProductService _productService = ProductService();
 
   @override
   void initState() {
@@ -24,10 +26,23 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
   }
 
   Future<void> _loadProducts() async {
-    final products = await DatabaseHelper.instance.getAllProducts();
+    setState(() => _isLoading = true);
+    final products = await _productService.getAllProducts();
     setState(() {
       _products = products;
+      _filteredProducts = products;
       _isLoading = false;
+    });
+  }
+
+  void _filterProducts(String query) {
+    setState(() {
+      _filteredProducts = query.isEmpty
+          ? _products
+          : _products
+              .where((p) =>
+                  p.name.toLowerCase().contains(query.toLowerCase()))
+              .toList();
     });
   }
 
@@ -50,31 +65,43 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
                 prefixIcon: Icon(Icons.search),
                 border: OutlineInputBorder(),
               ),
-              onChanged: (value) => setState(() {}),
+              onChanged: _filterProducts,
             ),
           ),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : _products.isEmpty
+                : _filteredProducts.isEmpty
                     ? const Center(child: Text("No products available yet"))
                     : ListView.builder(
-                        itemCount: _products.length,
+                        itemCount: _filteredProducts.length,
                         itemBuilder: (context, index) {
-                          final product = _products[index];
-                          final daysLeft = product.expiryDate.difference(DateTime.now()).inDays;
+                          final product = _filteredProducts[index];
+                          final daysLeft = product.expiryDate
+                              .difference(DateTime.now())
+                              .inDays;
                           final isRescue = daysLeft <= 3;
 
                           return Card(
-                            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            margin: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
                             child: ListTile(
-                              title: Text(product.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                              subtitle: Text("Expires in $daysLeft days • \$${product.price.toStringAsFixed(2)}"),
+                              title: Text(product.name,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold)),
+                              subtitle: Text(
+                                  "Expires in $daysLeft days • \$${product.price.toStringAsFixed(2)}"),
                               trailing: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.center,
                                 children: [
-                                  Text("\$${product.price.toStringAsFixed(2)}", style: const TextStyle(fontWeight: FontWeight.bold)),
-                                  if (isRescue) const Icon(Icons.warning, color: Colors.red, size: 18),
+                                  Text(
+                                      "\$${product.price.toStringAsFixed(2)}",
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold)),
+                                  if (isRescue)
+                                    const Icon(Icons.warning,
+                                        color: Colors.red, size: 18),
                                 ],
                               ),
                               onTap: () {
@@ -82,8 +109,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
                                   context,
                                   MaterialPageRoute(
                                     builder: (_) => ChatScreen(
-                                      currentUser: widget.user,
-                                      receiverId: product.userId,
+                                      receiverId: product.userId.toString(),
                                       receiverName: "Seller",
                                     ),
                                   ),
@@ -97,5 +123,11 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 }
