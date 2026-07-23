@@ -14,7 +14,7 @@ class SellerDashboard extends StatefulWidget {
 }
 
 class _SellerDashboardState extends State<SellerDashboard> {
-  final LogiFlowGemmaService _gemmaService = GemmaService();  // ← Adicione esta linha
+  final LogiFlowGemmaService _gemmaService = LogiFlowGemmaService();  // instância correta baseada em lib/core/gemma_service.dart
   
   List<Product> _products = [];
   String _gemmaInsight = "Loading smart suggestions from Gemma...";
