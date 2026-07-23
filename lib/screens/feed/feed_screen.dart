@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
-import '../../models/product_model.dart';
-import '../../services/agent_service.dart';
-import '../../stock_screen.dart'; // Ajuste este caminho se a tela estiver em outra pasta
+import '../../models/product.dart';
+import '../ai/agent_service.dart';
 
 class FeedScreen extends StatefulWidget {
+  const FeedScreen({super.key});
+
   @override
   _FeedScreenState createState() => _FeedScreenState();
 }
 
 class _FeedScreenState extends State<FeedScreen> {
   final TextEditingController _controller = TextEditingController();
-  final List<Widget> _feedItems = []; 
+  final List<Widget> _feedItems = [];
 
   void _handleSend() async {
     final text = _controller.text;
@@ -66,31 +67,31 @@ class _FeedScreenState extends State<FeedScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(product.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              if (product.isRescue) 
+              if (product.isRescue)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(5)),
-                  child: const Text("RESCATE", style: TextStyle(color: Colors.white, fontSize: 10)),
+                  child: const Text('RESCUE', style: TextStyle(color: Colors.white, fontSize: 10)),
                 ),
             ],
           ),
           const SizedBox(height: 5),
-          Text("📍 ${product.address}", style: const TextStyle(color: Colors.grey)),
+          Text('📍 ${product.address}', style: const TextStyle(color: Colors.grey)),
           const Divider(),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text("R\$ ${product.price.toStringAsFixed(2)}", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green)),
-              Text("Qtd: ${product.quantity}", style: const TextStyle(color: Colors.black54)),
+              Text('\$${product.price.toStringAsFixed(2)}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green)),
+              Text('Qty: ${product.quantity}', style: const TextStyle(color: Colors.black54)),
             ],
           ),
           const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () {}, 
+              onPressed: () {},
               style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-              child: const Text("Ver detalhes"),
+              child: const Text('View details'),
             ),
           )
         ],
@@ -102,17 +103,13 @@ class _FeedScreenState extends State<FeedScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("LogiFlow Agent"),
-        // Adição do botão de navegação para o StockScreen
+        title: const Text('LogiFlow Agent'),
         actions: [
           IconButton(
             icon: const Icon(Icons.inventory),
-            tooltip: 'Acessar Estoque',
+            tooltip: 'Access Stock',
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const StockScreen()),
-              );
+              // Navigate to stock screen (if implemented)
             },
           ),
         ],
@@ -120,32 +117,28 @@ class _FeedScreenState extends State<FeedScreen> {
       body: Column(
         children: [
           Expanded(
-            child: ListView.builder(
-              itemCount: _feedItems.length,
-              itemBuilder: (context, index) => _feedItems[index],
+            child: ListView(
+              padding: const EdgeInsets.all(12),
+              children: _feedItems,
             ),
           ),
-          _buildInputArea(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInputArea() {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      color: Colors.white,
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _controller, 
-              decoration: const InputDecoration(hintText: "Procure alimentos...")
-            )
-          ),
-          IconButton(
-            icon: const Icon(Icons.send, color: Colors.green), 
-            onPressed: _handleSend
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    decoration: const InputDecoration(
+                      hintText: 'Ask the agent for help or type a message...',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(icon: const Icon(Icons.send, color: Colors.green), onPressed: _handleSend),
+              ],
+            ),
           ),
         ],
       ),

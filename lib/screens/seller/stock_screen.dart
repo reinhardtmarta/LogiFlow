@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/product.dart';
-import '../../core/database_helper.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../services/inventory_service.dart';
 
 class StockScreen extends StatefulWidget {
   const StockScreen({super.key});
@@ -20,7 +21,29 @@ class _StockScreenState extends State<StockScreen> {
   }
 
   Future<void> _loadStock() async {
-    final items = await DatabaseHelper.instance.getUserProducts(1); // ID do usuário logado
+    setState(() => _isLoading = true);
+    final client = Supabase.instance.client;
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) {
+      setState(() {
+        _stock = [];
+        _isLoading = false;
+      });
+      return;
+    }
+
+    // Select inventory joined with products where product.seller_id == userId
+    final res = await client.from('inventory').select('*, products(*)').eq('products.seller_id', userId).order('updated_at', ascending: false);
+
+    final items = <Product>[];
+    if (res != null) {
+      for (var row in res as List) {
+        try {
+          items.add(Product.fromSupabase(Map<String, dynamic>.from(row)));
+        } catch (_) {}
+      }
+    }
+
     setState(() {
       _stock = items;
       _isLoading = false;
@@ -29,21 +52,20 @@ class _StockScreenState extends State<StockScreen> {
 
   void _updateQty(Product product, int change) async {
     final newQty = (product.quantity + change).clamp(0, 999);
-    // Correção: Adição do "!" para garantir que o ID não é nulo
-    await DatabaseHelper.instance.updateProduct(product.id!, qty: newQty);
-    _loadStock(); 
+    // Use inventoryService to set stock (upsert)
+    await inventoryService.setStock(product.id!, newQty, location: product.address, address: product.address);
+    await _loadStock();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("My Stock Management"), backgroundColor: Colors.green),
+      appBar: AppBar(title: const Text('My Stock Management'), backgroundColor: Colors.green),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
                 _buildStatusFilter(),
-                
                 Expanded(
                   child: ListView.builder(
                     itemCount: _stock.length,
@@ -63,15 +85,14 @@ class _StockScreenState extends State<StockScreen> {
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text("Status: ${item.condition}"),
+                              Text('Status: ${item.condition}'),
                               Text(
-                                isExpiring 
-                                  ? "⚠️ $daysLeft days until expiry!" 
-                                  // Correção: Variável alterada de $days para $daysLeft
-                                  : "Expires in $daysLeft days",
+                                isExpiring
+                                    ? '⚠️ $daysLeft days until expiry!'
+                                    : 'Expires in $daysLeft days',
                                 style: TextStyle(
-                                  color: isExpiring ? Colors.red : Colors.black54, 
-                                  fontWeight: isExpiring ? FontWeight.bold : FontWeight.normal
+                                  color: isExpiring ? Colors.red : Colors.black54,
+                                  fontWeight: isExpiring ? FontWeight.bold : FontWeight.normal,
                                 ),
                               ),
                             ],
@@ -80,7 +101,7 @@ class _StockScreenState extends State<StockScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(icon: const Icon(Icons.remove_circle_outline), onPressed: () => _updateQty(item, -1)),
-                              Text("${item.quantity}"),
+                              Text('${item.quantity}'),
                               IconButton(icon: const Icon(Icons.add_circle_outline), onPressed: () => _updateQty(item, 1)),
                             ],
                           ),

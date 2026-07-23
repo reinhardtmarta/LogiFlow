@@ -1,18 +1,13 @@
 import 'package:flutter/material.dart';
-import '../../models/user.dart';
 import '../../core/database_helper.dart';
+import 'package:logiflow/services/message_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ChatScreen extends StatefulWidget {
-  final User currentUser;
-  final int receiverId;
+  final String receiverId;
   final String receiverName;
 
-  const ChatScreen({
-    super.key,
-    required this.currentUser,
-    required this.receiverId,
-    required this.receiverName,
-  });
+  const ChatScreen({super.key, required this.receiverId, required this.receiverName});
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -31,10 +26,14 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _loadMessages() async {
     setState(() => _isLoading = true);
-    final msgs = await DatabaseHelper.instance.getMessages(
-      widget.currentUser.id!,
-      widget.receiverId,
-    );
+    final client = Supabase.instance.client;
+    final me = client.auth.currentUser?.id;
+    if (me == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    final msgs = await messageService.getMessagesBetween(me, widget.receiverId);
     setState(() {
       _messages = msgs;
       _isLoading = false;
@@ -44,35 +43,32 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
+    final client = Supabase.instance.client;
+    final me = client.auth.currentUser?.id;
+    if (me == null) return;
 
-    await DatabaseHelper.instance.sendMessage(
-      widget.currentUser.id!,
-      widget.receiverId,
-      text,
-    );
-
+    await messageService.sendMessage(me, widget.receiverId, text);
     _messageController.clear();
-    _loadMessages(); // Atualiza a conversa
+    _loadMessages();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Chat with ${widget.receiverName}"),
+        title: Text('Chat with ${widget.receiverName}'),
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
       ),
       body: Column(
         children: [
-          // Messages Area
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _messages.isEmpty
                     ? const Center(
                         child: Text(
-                          "No messages yet.\nStart the conversation!",
+                          'No messages yet.\nStart the conversation!',
                           textAlign: TextAlign.center,
                         ),
                       )
@@ -81,27 +77,20 @@ class _ChatScreenState extends State<ChatScreen> {
                         itemCount: _messages.length,
                         itemBuilder: (context, index) {
                           final msg = _messages[index];
-                          final isMe = msg['sender_id'] == widget.currentUser.id;
+                          final isMe = msg['sender_id'] == Supabase.instance.client.auth.currentUser?.id;
 
                           return Align(
-                            alignment: isMe
-                                ? Alignment.centerRight
-                                : Alignment.centerLeft,
+                            alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
                             child: Container(
                               margin: const EdgeInsets.symmetric(vertical: 6),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
-                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                               decoration: BoxDecoration(
                                 color: isMe ? Colors.green : Colors.grey[300],
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               child: Text(
                                 msg['message'],
-                                style: TextStyle(
-                                  color: isMe ? Colors.white : Colors.black,
-                                ),
+                                style: TextStyle(color: isMe ? Colors.white : Colors.black),
                               ),
                             ),
                           );
@@ -109,7 +98,6 @@ class _ChatScreenState extends State<ChatScreen> {
                       ),
           ),
 
-          // Input Area
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -128,7 +116,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   child: TextField(
                     controller: _messageController,
                     decoration: const InputDecoration(
-                      hintText: "Type a message...",
+                      hintText: 'Type a message...',
                       border: OutlineInputBorder(),
                       contentPadding: EdgeInsets.symmetric(horizontal: 16),
                     ),
@@ -139,7 +127,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  icon: const Icon(Icons.send, color: Colors.green, size: 28),
+                  icon: const Icon(Icons.send, color: Colors.green),
                   onPressed: _sendMessage,
                 ),
               ],

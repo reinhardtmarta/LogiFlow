@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import '../../models/user.dart';
-import '../../core/database_helper.dart';
 import '../../models/product.dart';
-import '../chat/chat_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../screens/chat/chat_screen.dart';
 
 class GeneralFeedScreen extends StatefulWidget {
-  final User user;
-  const GeneralFeedScreen({super.key, required this.user});
+  const GeneralFeedScreen({super.key});
 
   @override
   State<GeneralFeedScreen> createState() => _GeneralFeedScreenState();
@@ -23,9 +21,25 @@ class _GeneralFeedScreenState extends State<GeneralFeedScreen> {
   }
 
   Future<void> _load() async {
-    final all = await DatabaseHelper.instance.getAllProducts();
+    setState(() => _loading = true);
+    final client = Supabase.instance.client;
+
+    // Query inventory joined with products to get combined view
+    final res = await client.from('inventory').select('*, products(*)').order('updated_at', ascending: false).limit(100);
+
+    final List<Product> items = [];
+    if (res != null) {
+      for (var row in res as List) {
+        try {
+          items.add(Product.fromSupabase(Map<String, dynamic>.from(row)));
+        } catch (_) {
+          // skip malformed
+        }
+      }
+    }
+
     setState(() {
-      _products = all;
+      _products = items;
       _loading = false;
     });
   }
@@ -34,7 +48,7 @@ class _GeneralFeedScreenState extends State<GeneralFeedScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("LogiFlow Feed"),
+        title: const Text('LogiFlow Feed'),
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
       ),
@@ -63,7 +77,7 @@ class _GeneralFeedScreenState extends State<GeneralFeedScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text("$days days left", style: const TextStyle(fontWeight: FontWeight.bold)),
-                          if (isUrgent) const Text("RESCUE", style: TextStyle(color: Colors.red, fontSize: 11, fontWeight: FontWeight.bold)),
+                          if (isUrgent) const Text('RESCUE', style: TextStyle(color: Colors.red, fontSize: 11, fontWeight: FontWeight.bold)),
                         ],
                       ),
                       onTap: () {
@@ -71,9 +85,8 @@ class _GeneralFeedScreenState extends State<GeneralFeedScreen> {
                           context,
                           MaterialPageRoute(
                             builder: (_) => ChatScreen(
-                              currentUser: widget.user,
-                              receiverId: p.userId,
-                              receiverName: "Seller",
+                              receiverId: p.userId.toString(),
+                              receiverName: 'Seller',
                             ),
                           ),
                         );
