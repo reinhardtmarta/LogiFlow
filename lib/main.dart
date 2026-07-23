@@ -9,10 +9,10 @@ import 'package:logiflow/screens/consumer/marketplace_screen.dart';
 import 'package:logiflow/screens/ai/ai_assistant_screen.dart';
 import 'package:logiflow/screens/feed/general_feed_screen.dart';
 import 'package:logiflow/screens/search/search_screen.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 
 // Use um getter para pegar o client quando necessário (evita acessar antes da inicialização)
-SupabaseClient get supabase => Supabase.instance.client;
+supabase.SupabaseClient get supabaseClient => supabase.Supabase.instance.client;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,12 +23,12 @@ Future<void> main() async {
 
   if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
     throw Exception(
-      'SUPABASE_URL e SUPABASE_ANON_KEY não foram fornecidos. Passe-os com --dart-define (ex: flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...) ou configure seu processo de build para injetar as secrets.'
+      'SUPABASE_URL e SUPABASE_ANON_KEY não foram fornecidos. Passe-os com --dart-define (ex: flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...) ou configure seu proc[...]
     );
   }
 
   // Inicializa o Supabase antes de rodar a aplicação
-  await Supabase.initialize(
+  await supabase.Supabase.initialize(
     url: supabaseUrl,
     anonKey: supabaseAnonKey,
   );
