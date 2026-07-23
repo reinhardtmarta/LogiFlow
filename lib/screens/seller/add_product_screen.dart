@@ -63,7 +63,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
     // Construtor completamente alinhado com o arquivo product.dart
     final product = Product(
-      userId: widget.user.id!, // O id do usuário logado é passado aqui
+      userId: widget.user.id.toString(), // Convert int to String
       name: _nameController.text.trim(),
       quantity: int.tryParse(_qtyController.text) ?? 1,
       price: double.tryParse(_priceController.text) ?? 0.0,
