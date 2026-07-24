@@ -25,6 +25,10 @@ jobs:
         with:
           flutter-version: '3.44.0'
           channel: 'stable'
+           - name: Criar .env
+        run: |
+          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env
+          echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> .env
 
       - name: Install dependencies
         run: flutter pub get
