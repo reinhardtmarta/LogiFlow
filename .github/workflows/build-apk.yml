@@ -25,7 +25,8 @@ jobs:
         with:
           flutter-version: '3.44.0'
           channel: 'stable'
-           - name: Criar .env
+
+      - name: Criar .env
         run: |
           echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env
           echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> .env
@@ -69,4 +70,3 @@ jobs:
           name: LogiFlow-Android-APK
           path: LogiFlow-v${{ github.run_number }}.apk
           retention-days: 90
-          
