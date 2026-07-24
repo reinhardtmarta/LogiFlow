@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/product.dart';
-import '../ai/ai_assistent_screen.dart';
+import '../core/gemma_service.dart';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
