@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:google_generative_ai/google_generative_ai.dart';
-import '../models/product_model.dart';
+import '../models/product.dart';
 
 enum AgentAction { showProduct, chat, search, unknown }
 
