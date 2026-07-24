@@ -26,9 +26,6 @@ dependencies:
   # Media
   image_picker: ^1.1.2
 
-  # Env
-  flutter_dotenv: ^5.1.0
-
   # AI (Google Generative AI - Gemini/Gemma)
   google_generative_ai: ^0.4.7
   http: ^1.2.0
