@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/product.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../services/inventory_service.dart';
 
 class StockScreen extends StatefulWidget {
   const StockScreen({super.key});
