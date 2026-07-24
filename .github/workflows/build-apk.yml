@@ -5,6 +5,7 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:  # Permite rodar manualmente
 
 jobs:
   build:
@@ -23,8 +24,15 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.44.0'
+          flutter-version: '3.24.0'   # Versão mais recente e estável
           channel: 'stable'
+          cache: true                 # Cache para acelerar builds
+
+      - name: Accept Android licenses
+        run: yes | flutter doctor --android-licenses
+
+      - name: Clean project
+        run: flutter clean
 
       - name: Criar .env
         run: |
@@ -45,7 +53,6 @@ jobs:
         run: |
           MANIFEST_PATH="android/app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST_PATH" ]; then
-            # Injeta a tag de permissão logo após a abertura da tag <manifest> usando substituição padrão com quebra de linha válida (\n)
             sed -i 's|<manifest[^>]*>|&\n    <uses-permission android:name="android.permission.INTERNET" />|' "$MANIFEST_PATH"
             echo "✅ Permissão de internet injetada com sucesso!"
           else
