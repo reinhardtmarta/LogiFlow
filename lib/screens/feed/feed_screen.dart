@@ -22,12 +22,12 @@ class _FeedScreenState extends State<FeedScreen> {
       _controller.clear();
     });
 
-    final response = await AgentService.processUserRequest(text);
+    final response = await GemmaService.processUserRequest(text);
 
     setState(() {
       _feedItems.add(_buildChatBubble(response.text, isUser: false));
 
-      if (response.action == AgentAction.showProduct && response.products != null) {
+      if (response.action == GemmaAction.showProduct && response.products != null) {
         for (var prod in response.products!) {
           _feedItems.add(_buildProductCard(prod));
         }
