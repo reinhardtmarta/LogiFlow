@@ -1,3 +1,12 @@
+name: Build LogiFlow Android APK
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -15,19 +24,37 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.6'      # ← Versão que ainda suporta v1 (temporário)
-          channel: 'stable'
+          flutter-version: '3.19.6'
+          channel: stable
           cache: true
 
-      - name: Regenerate Android folder (force v2)
+      - name: Clean Gradle and Build Cache
         run: |
           flutter clean
-          rm -rf android
-          flutter create . --platforms=android
-          echo "✅ Android project regenerated with v2 embedding"
+          rm -rf android/.gradle android/app/build build
+
+      - name: Force Android v2 Embedding
+        run: |
+          # Cria ou sobrescreve MainActivity.kt com v2
+          mkdir -p android/app/src/main/kotlin/com/logiflow
+
+          cat > android/app/src/main/kotlin/com/logiflow/MainActivity.kt << 'EOF'
+          package com.logiflow
+
+          import io.flutter.embedding.android.FlutterActivity
+
+          class MainActivity : FlutterActivity() {
+          }
+          EOF
+
+          # Remove qualquer referência antiga v1
+          sed -i '/flutterEmbedding.*1/d' android/app/src/main/AndroidManifest.xml || true
 
       - name: Accept Android licenses
         run: yes | flutter doctor --android-licenses
+
+      - name: Clean project
+        run: flutter clean
 
       - name: Criar .env
         run: |
@@ -37,12 +64,21 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Injetar permissão de Internet
+      - name: Generate Android project (if android/ folder is missing)
+        run: |
+          if [ ! -d "android" ]; then
+            echo "android/ folder not found. Running flutter create..."
+            flutter create . --platforms android
+          fi
+
+      - name: Injetar permissão de Internet no AndroidManifest
         run: |
           MANIFEST_PATH="android/app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST_PATH" ]; then
             sed -i 's|<manifest[^>]*>|&\n    <uses-permission android:name="android.permission.INTERNET" />|' "$MANIFEST_PATH"
-            echo "✅ Permissão injetada"
+            echo "✅ Permissão de internet injetada com sucesso!"
+          else
+            echo "❌ Arquivo AndroidManifest.xml não encontrado para modificação."
           fi
 
       - name: Build Release APK
@@ -55,7 +91,8 @@ jobs:
             --split-debug-info=build/app/outputs/symbols
 
       - name: Rename APK
-        run: mv build/app/outputs/flutter-apk/app-release.apk LogiFlow-v${{ github.run_number }}.apk
+        run: |
+          mv build/app/outputs/flutter-apk/app-release.apk LogiFlow-v${{ github.run_number }}.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
