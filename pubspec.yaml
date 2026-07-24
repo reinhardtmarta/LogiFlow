@@ -9,6 +9,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    - .env
 
 dependencies:
   flutter:
@@ -25,6 +26,9 @@ dependencies:
   # Media
   image_picker: ^1.1.2
 
+  # Env
+  flutter_dotenv: ^5.1.0
+
   # AI (Google Generative AI - Gemini/Gemma)
   google_generative_ai: ^0.4.7
   http: ^1.2.0
@@ -32,21 +36,7 @@ dependencies:
   # Supabase
   supabase_flutter: ^2.5.0
 
-  # Optional but recommended for icons later
-  # flutter_launcher_icons: ^0.13.1
-
-  # For better state management in future
-  # provider: ^6.1.2
-
-  # Maps (future)
-  # google_maps_flutter: ^2.5.0
-
-  # Charts (impact dashboard)
-  # fl_chart: ^0.68.0
-
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
-
-  # flutter_launcher_icons: ^0.13.1
