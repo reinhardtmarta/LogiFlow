@@ -2,9 +2,9 @@ name: Build LogiFlow Android APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -24,27 +24,32 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.32.0'     # ← Alterado aqui (suporta Dart 3.6+)
-          channel: 'stable'
+          flutter-version: '3.32.0'
+          channel: stable
           cache: true
-    run: |
+
+      - name: Clean Gradle and Build Cache
+        run: |
           flutter clean
-          rm -rf android/.gradle android/app/build build   - name: Force Android v2 Embedding
+          rm -rf android/.gradle android/app/build build
+
+      - name: Force Android v2 Embedding
         run: |
           # Cria ou sobrescreve MainActivity.kt com v2
-          mkdir -p android/app/src/main/kotlin/com/logiflow  # ajuste o caminho do package
+          mkdir -p android/app/src/main/kotlin/com/logiflow
+
           cat > android/app/src/main/kotlin/com/logiflow/MainActivity.kt << 'EOF'
-          package com.logiflow  # <<<=== MUDE PARA O PACKAGE DO SEU APP
+          package com.logiflow
 
           import io.flutter.embedding.android.FlutterActivity
 
-          class MainActivity: FlutterActivity() {
+          class MainActivity : FlutterActivity() {
           }
           EOF
 
           # Remove qualquer referência antiga v1
           sed -i '/flutterEmbedding.*1/d' android/app/src/main/AndroidManifest.xml || true
-          
+
       - name: Accept Android licenses
         run: yes | flutter doctor --android-licenses
 
@@ -86,7 +91,8 @@ jobs:
             --split-debug-info=build/app/outputs/symbols
 
       - name: Rename APK
-        run: mv build/app/outputs/flutter-apk/app-release.apk LogiFlow-v${{ github.run_number }}.apk
+        run: |
+          mv build/app/outputs/flutter-apk/app-release.apk LogiFlow-v${{ github.run_number }}.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
