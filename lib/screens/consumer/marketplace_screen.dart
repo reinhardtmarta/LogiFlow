@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/user.dart';
-import '../../models/product.dart';
-import '../../services/product_service.dart';
+import 'package:logiflow/models/product.dart';
 import '../chat/chat_screen.dart';
 
 class MarketplaceScreen extends StatefulWidget {
@@ -17,7 +16,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
   List<Product> _filteredProducts = [];
   bool _isLoading = true;
   final TextEditingController _searchController = TextEditingController();
-  final ProductService _productService = ProductService();
 
   @override
   void initState() {
@@ -27,10 +25,22 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
 
   Future<void> _loadProducts() async {
     setState(() => _isLoading = true);
-    final products = await _productService.getAllProducts();
     setState(() {
-      _products = products;
-      _filteredProducts = products;
+      // Temporary sample product until real loading logic is implemented
+      _products = [
+        Product(
+          userId: '1',
+          name: 'Sample Product',
+          quantity: 1,
+          price: 1.0,
+          expiryDate: DateTime.now().add(const Duration(days: 5)),
+          condition: 'Good',
+          isProducer: false,
+          address: 'Sample Address',
+          category: 'Other',
+        )
+      ];
+      _filteredProducts = _products;
       _isLoading = false;
     });
   }

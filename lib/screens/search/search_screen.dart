@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../services/product_service.dart';
+
 import '../../models/product.dart';
-import '../chat/chat_screen.dart';
 import '../../models/user.dart';
+import '../chat/chat_screen.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -12,22 +12,48 @@ class SearchScreen extends StatefulWidget {
 }
 
 class _SearchScreenState extends State<SearchScreen> {
+  final TextEditingController _controller = TextEditingController();
+
   List<Product> _results = [];
-  final _controller = TextEditingController();
   bool _loading = false;
-  final ProductService _productService = ProductService();
 
   Future<void> _search(String query) async {
-    if (query.trim().isEmpty) {
-      setState(() => _results = []);
+    final text = query.trim();
+
+    if (text.isEmpty) {
+      if (!mounted) return;
+
+      setState(() {
+        _results = [];
+        _loading = false;
+      });
       return;
     }
-    setState(() => _loading = true);
-    final filtered = await _productService.searchProducts(query);
+
     setState(() {
-      _results = filtered;
-      _loading = false;
+      _loading = true;
     });
+
+    try {
+      // Simulação de busca - substitua com sua lógica real
+      final filtered = <Product>[];
+
+      if (!mounted) return;
+
+      setState(() {
+        _results = filtered;
+        _loading = false;
+      });
+    } catch (e) {
+      debugPrint('Erro na pesquisa: $e');
+
+      if (!mounted) return;
+
+      setState(() {
+        _results = [];
+        _loading = false;
+      });
+    }
   }
 
   @override
@@ -35,7 +61,9 @@ class _SearchScreenState extends State<SearchScreen> {
     final user = ModalRoute.of(context)?.settings.arguments as User?;
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Search Rescue Items")),
+      appBar: AppBar(
+        title: const Text("Search Rescue Items"),
+      ),
       body: Column(
         children: [
           Padding(
@@ -52,33 +80,45 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(
+                    child: CircularProgressIndicator(),
+                  )
                 : _results.isEmpty
                     ? const Center(
-                        child: Text("No results. Try another search."))
+                        child: Text(
+                          "No results. Try another search.",
+                        ),
+                      )
                     : ListView.builder(
                         itemCount: _results.length,
-                        itemBuilder: (context, i) {
-                          final p = _results[i];
+                        itemBuilder: (context, index) {
+                          final product = _results[index];
+
                           return ListTile(
-                            title: Text(p.name),
+                            title: Text(product.name),
                             subtitle: Text(
-                                "${p.quantity} units • Expires: ${p.expiryDate.toString().substring(0, 10)}"),
+                              "${product.quantity} units • Expires: ${product.expiryDate.toString().substring(0, 10)}",
+                            ),
                             trailing: Text(
-                                "\$${p.price.toStringAsFixed(2)}",
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold)),
+                              "\$${product.price.toStringAsFixed(2)}",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                             onTap: user == null
                                 ? null
-                                : () => Navigator.push(
+                                : () {
+                                    Navigator.push(
                                       context,
                                       MaterialPageRoute(
                                         builder: (_) => ChatScreen(
-                                          receiverId: p.userId.toString(),
+                                          receiverId:
+                                              product.userId.toString(),
                                           receiverName: "Seller",
                                         ),
                                       ),
-                                    ),
+                                    );
+                                  },
                           );
                         },
                       ),

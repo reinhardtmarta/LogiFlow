@@ -37,7 +37,7 @@ class Product {
       final String userIdStr = uid != null ? uid.toString() : '';
       final expiryRaw = map['expiry_date'] as String? ?? DateTime.now().toIso8601String();
       return Product(
-        id: map['id'] != null ? map['id'].toString() : null,
+        id: map['id']?.toString(),
         userId: userIdStr,
         name: map['name'] as String? ?? '',
         quantity: (map['qty'] ?? map['quantity'] ?? 0) as int,
@@ -61,7 +61,7 @@ class Product {
   factory Product.fromSupabase(Map<String, dynamic> map) {
     // Possible structures:
     // { id: inventory_id, product_id, quantity, expiry_date, address, products: { id, seller_id, name, price, ... } }
-    final productNested = map['products'] ?? map['product'] ?? map['products'][0] ?? null;
+    final productNested = map['products'] ?? map['product'] ?? map['products'][0];
 
     final sellerId = productNested != null ? (productNested['seller_id'] ?? productNested['user_id']) : null;
     final name = productNested != null ? (productNested['name'] ?? '') : (map['name'] ?? '');
@@ -78,7 +78,7 @@ class Product {
     }
 
     return Product(
-      id: map['id'] != null ? map['id'].toString() : null,
+      id: map['id']?.toString(),
       userId: sellerId != null ? sellerId.toString() : '',
       name: name as String,
       quantity: (map['quantity'] ?? map['qty'] ?? 0) as int,

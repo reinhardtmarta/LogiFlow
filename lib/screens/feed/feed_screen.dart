@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../models/product.dart';
-import '../core/gemma_service.dart';
+import '../../core/gemma_service.dart';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -22,17 +21,18 @@ class _FeedScreenState extends State<FeedScreen> {
       _controller.clear();
     });
 
-    final response = await GemmaService.processUserRequest(text);
+    try {
+      final gemmaService = GemmaService();
+      final response = await gemmaService.generate(text);
 
-    setState(() {
-      _feedItems.add(_buildChatBubble(response.text, isUser: false));
-
-      if (response.action == GemmaAction.showProduct && response.products != null) {
-        for (var prod in response.products!) {
-          _feedItems.add(_buildProductCard(prod));
-        }
-      }
-    });
+      setState(() {
+        _feedItems.add(_buildChatBubble(response as String, isUser: false));
+      });
+    } catch (e) {
+      setState(() {
+        _feedItems.add(_buildChatBubble('Error processing request: $e', isUser: false));
+      });
+    }
   }
 
   Widget _buildChatBubble(String text, {required bool isUser}) {
@@ -46,55 +46,6 @@ class _FeedScreenState extends State<FeedScreen> {
           borderRadius: BorderRadius.circular(15),
         ),
         child: Text(text, style: const TextStyle(color: Colors.black87)),
-      ),
-    );
-  }
-
-  Widget _buildProductCard(Product product) {
-    return Container(
-      margin: const EdgeInsets.all(15),
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 5)],
-        border: Border.all(color: product.isRescue ? Colors.redAccent : Colors.green, width: 2),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(product.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              if (product.isRescue)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(5)),
-                  child: const Text('RESCUE', style: TextStyle(color: Colors.white, fontSize: 10)),
-                ),
-            ],
-          ),
-          const SizedBox(height: 5),
-          Text('📍 ${product.address}', style: const TextStyle(color: Colors.grey)),
-          const Divider(),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('\$${product.price.toStringAsFixed(2)}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green)),
-              Text('Qty: ${product.quantity}', style: const TextStyle(color: Colors.black54)),
-            ],
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {},
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-              child: const Text('View details'),
-            ),
-          )
-        ],
       ),
     );
   }
@@ -144,4 +95,7 @@ class _FeedScreenState extends State<FeedScreen> {
       ),
     );
   }
+}
+
+class GemmaResponse {
 }

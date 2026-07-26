@@ -1,0 +1,11 @@
+{
+    "git.commitShortHashLength": 40,
+    "git.diagnosticsCommitHook.enabled": true,
+    "git.detectWorktreesLimit": 70,
+    "git.enableSmartCommit": true,
+    "files.saveConflictResolution": "overwriteFileOnDisk",
+    "git.addAICoAuthor": "all",
+    "git.timeline.date": "authored",
+    "githubIssues.issueAvatarDisplay": "generic",
+    "githubPullRequests.pullRequestAvatarDisplay": "generic"
+}

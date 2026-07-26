@@ -11,8 +11,6 @@ class DatabaseHelper {
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    // O nome do arquivo foi alterado para v2. 
-    // Isso força o celular a criar um banco limpo com a nova estrutura.
     _database = await _initDB('logiflow_v2.db');
     return _database!;
   }
@@ -29,7 +27,6 @@ class DatabaseHelper {
   }
 
   Future<void> _createDB(Database db, int version) async {
-    // Tabela de Usuários
     await db.execute('''
       CREATE TABLE users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -42,7 +39,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // Tabela de Produtos (Atualizada com a estrutura final do formulário)
     await db.execute('''
       CREATE TABLE products (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,7 +58,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // Tabela de Mensagens
     await db.execute('''
       CREATE TABLE messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -73,10 +68,9 @@ class DatabaseHelper {
       )
     ''');
 
-    // Insere os dados de teste na primeira vez que o app rodar
     await _seedData(db);
   }
-  
+
   Future<void> updateProduct(int id, {int? qty, String? condition, String? expiryDate}) async {
     final db = await instance.database;
     
@@ -125,7 +119,6 @@ class DatabaseHelper {
 
     final today = DateTime.now();
     
-    // Produtos de teste com os campos novos (category e is_rescue)
     await db.insert('products', {
       'user_id': 1,
       'name': 'Organic Milk',
@@ -188,7 +181,7 @@ class DatabaseHelper {
       await db.insert('users', user.toMap());
       return true;
     } catch (e) {
-      return false; 
+      return false;
     }
   }
 
@@ -207,7 +200,7 @@ class DatabaseHelper {
       where: 'user_id = ?',
       whereArgs: [userId],
     );
-    return result.map((json) => Product.fromMap(json)).toList();
+    return result.map((json) => Product.fromMap(json)).toList(); // mantido o mapeamento padrão
   }
 
   Future<List<Product>> searchProducts(String query) async {

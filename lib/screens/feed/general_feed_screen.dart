@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../models/product.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import '../../models/user.dart';
-import '../../screens/chat/chat_screen.dart';
 
 class GeneralFeedScreen extends StatefulWidget {
   final User user;
@@ -30,13 +29,11 @@ class _GeneralFeedScreenState extends State<GeneralFeedScreen> {
     final res = await client.from('inventory').select('*, products(*)').order('updated_at', ascending: false).limit(100);
 
     final List<Product> items = [];
-    if (res != null) {
-      for (var row in res as List) {
-        try {
-          items.add(Product.fromSupabase(Map<String, dynamic>.from(row)));
-        } catch (_) {
-          // skip malformed
-        }
+    for (var row in res as List) {
+      try {
+        items.add(Product.fromSupabase(Map<String, dynamic>.from(row)));
+      } catch (_) {
+        // skip malformed
       }
     }
 
@@ -86,9 +83,10 @@ class _GeneralFeedScreenState extends State<GeneralFeedScreen> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => ChatScreen(
-                              receiverId: p.userId.toString(),
-                              receiverName: 'Seller',
+                            builder: (_) => const Scaffold(
+                              body: Center(
+                                child: Text('Chat screen unavailable'),
+                              ),
                             ),
                           ),
                         );

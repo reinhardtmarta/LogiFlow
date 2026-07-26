@@ -167,7 +167,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
             const SizedBox(height: 16),
 
             DropdownButtonFormField<String>(
-              value: _category,
+              initialValue: _category,
               decoration: const InputDecoration(
                 labelText: "Category",
                 border: OutlineInputBorder(),
@@ -180,7 +180,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
             const SizedBox(height: 16),
 
             DropdownButtonFormField<String>(
-              value: _condition,
+              initialValue: _condition,
               decoration: const InputDecoration(labelText: "Condition", border: OutlineInputBorder()),
               items: _conditions
                   .map((c) => DropdownMenuItem(value: c, child: Text(c)))

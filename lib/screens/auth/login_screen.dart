@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:logiflow/services/supabase_service.dart';
 import '../../models/user.dart';
+import '../../services/supabase_service.dart';
 import '../home/home_screen.dart';
 import 'register_screen.dart';
 
@@ -20,7 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final res = await supabaseService.signIn(
+      await supabaseService.signIn(
         _emailController.text.trim(),
         _passwordController.text.trim(),
       );

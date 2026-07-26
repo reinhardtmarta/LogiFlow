@@ -1,21 +1,26 @@
 import 'package:flutter/material.dart';
-import '../../models/user.dart';
-import '../../models/product.dart';
+
 import '../../core/database_helper.dart';
-import '../../core/gemma_service.dart'; // Certifique-se de que este é o nome do arquivo da classe LogiFkGemmaService
+import '../../core/gemma_service.dart';
+import '../../models/product.dart';
+import '../../models/user.dart';
 import 'add_product_screen.dart';
 
 class SellerDashboard extends StatefulWidget {
   final User user;
-  const SellerDashboard({super.key, required this.user});
+
+  const SellerDashboard({
+    super.key,
+    required this.user,
+  });
 
   @override
   State<SellerDashboard> createState() => _SellerDashboardState();
 }
 
 class _SellerDashboardState extends State<SellerDashboard> {
-  final LogiFlowGemmaService _gemmaService = LogiFlowGemmaService();  // instância correta baseada em lib/core/gemma_service.dart
-  
+  final GemmaService _gemmaService = GemmaService();
+
   List<Product> _products = [];
   String _gemmaInsight = "Loading smart suggestions from Gemma...";
   bool _isLoading = true;
@@ -27,36 +32,55 @@ class _SellerDashboardState extends State<SellerDashboard> {
   }
 
   Future<void> _loadData() async {
-    final products = await DatabaseHelper.instance.getUserProducts(widget.user.id!);
-    setState(() {
-      _products = products;
-      _isLoading = false;
-    });
-    _generateGemmaAnalysis(products);
+    try {
+      final products =
+          await DatabaseHelper.instance.getUserProducts(widget.user.id!);
+
+      if (!mounted) return;
+
+      setState(() {
+        _products = products;
+        _isLoading = false;
+      });
+
+      await _generateGemmaAnalysis(products);
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+        _gemmaInsight = "Unable to load dashboard.";
+      });
+    }
   }
 
   Future<void> _generateGemmaAnalysis(List<Product> products) async {
-    String productList = products.isNotEmpty 
-        ? products.map((p) => '${p.name} (${p.quantity} units, expires ${p.expiryDate.toString().substring(0,10)})').join(', ')
+    final String productList = products.isNotEmpty
+        ? products
+            .map(
+              (p) =>
+                  "${p.name} (${p.quantity} units, expires ${p.expiryDate.toIso8601String().substring(0, 10)})",
+            )
+            .join(", ")
         : "no products";
-        
-    // 2. Prompt alinhado com as System Instructions da IA (Foco em dados reais, respostas curtas JSON)
-    String prompt = "Analyze this stock and alert about near expiry items: $productList";
+
+    final String prompt =
+        "Analyze this stock and alert about near expiry items: $productList";
 
     try {
-      // 3. Chamada correta do método criado na classe LogiFkGemmaService
-      final response = await _gemmaService.processQuery(prompt);
+      final response = await _gemmaService.perguntarGemma(prompt);
 
-      if (mounted) {
-        setState(() {
-          // O retorno já é um objeto BotResponse decodificado, basta ler o message
-          _gemmaInsight = response.message;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _gemmaInsight = "Could not load insights. Structural error.");
-      }
+      if (!mounted) return;
+
+      setState(() {
+        _gemmaInsight = response ?? "Gemma did not provide any insights.";
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _gemmaInsight = "Could not load insights.";
+      });
     }
   }
 
@@ -68,11 +92,16 @@ class _SellerDashboardState extends State<SellerDashboard> {
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
         actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadData,
+          ),
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+              child: CircularProgressIndicator(),
+            )
           : RefreshIndicator(
               onRefresh: _loadData,
               child: SingleChildScrollView(
@@ -92,22 +121,32 @@ class _SellerDashboardState extends State<SellerDashboard> {
                     ),
                     const SizedBox(height: 20),
                     const Text(
-                      "Gemma 4 Intelligence", 
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
+                      "Gemma Intelligence",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Card(
-                      color: Colors.green[50],
+                      color: Colors.green.shade50,
                       child: Padding(
-                        padding: const EdgeInsets.all(16), 
-                        child: Text(_gemmaInsight), 
+                        padding: const EdgeInsets.all(16),
+                        child: Text(_gemmaInsight),
                       ),
                     ),
                     const SizedBox(height: 24),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      mainAxisAlignment:
+                          MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text("My Products", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        const Text(
+                          "My Products",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         Text("${_products.length} items"),
                       ],
                     ),
@@ -115,24 +154,35 @@ class _SellerDashboardState extends State<SellerDashboard> {
                     if (_products.isEmpty)
                       const Center(
                         child: Padding(
-                          padding: EdgeInsets.all(40), 
-                          child: Text("No products yet. Tap + to add.")
-                        )
+                          padding: EdgeInsets.all(40),
+                          child: Text(
+                            "No products yet. Tap + to add.",
+                          ),
+                        ),
                       )
                     else
                       ListView.builder(
                         shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
+                        physics:
+                            const NeverScrollableScrollPhysics(),
                         itemCount: _products.length,
                         itemBuilder: (context, index) {
                           final p = _products[index];
-                          final days = p.expiryDate.difference(DateTime.now()).inDays;
+                          final days = p.expiryDate
+                              .difference(DateTime.now())
+                              .inDays;
+
                           return Card(
                             child: ListTile(
                               title: Text(p.name),
-                              subtitle: Text("${p.quantity} units • Expires in $days days"),
-                              trailing: days <= 5 
-                                  ? const Icon(Icons.warning_amber, color: Colors.red) 
+                              subtitle: Text(
+                                "${p.quantity} units • Expires in $days days",
+                              ),
+                              trailing: days <= 5
+                                  ? const Icon(
+                                      Icons.warning_amber,
+                                      color: Colors.red,
+                                    )
                                   : null,
                             ),
                           );
@@ -143,15 +193,22 @@ class _SellerDashboardState extends State<SellerDashboard> {
               ),
             ),
       floatingActionButton: FloatingActionButton.extended(
+        icon: const Icon(Icons.add),
+        label: const Text("Add Product"),
         onPressed: () async {
           final result = await Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => AddProductScreen(user: widget.user)),
+            MaterialPageRoute(
+              builder: (_) => AddProductScreen(
+                user: widget.user,
+              ),
+            ),
           );
-          if (result == true) _loadData();
+
+          if (result == true) {
+            await _loadData();
+          }
         },
-        icon: const Icon(Icons.add),
-        label: const Text("Add Product"),
       ),
     );
   }

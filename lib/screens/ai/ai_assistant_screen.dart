@@ -11,9 +11,8 @@ class AiAssistantScreen extends StatefulWidget {
 }
 
 class _AiAssistantScreenState extends State<AiAssistantScreen> {
-  // Instância do serviço criada para resolver o erro de "getter not defined"
-  final LogiFlowGemmaService _gemmaService = LogiFlowGemmaService();
-
+  // Mantém a sua classe original de serviço
+  final GemmaService _gemmaService = GemmaService();
   final TextEditingController _promptController = TextEditingController();
   final List<Map<String, String>> _messages = [];
   bool _isThinking = false;
@@ -29,11 +28,16 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     });
 
     try {
-      final result = await _gemmaService.processQuery(q);
-
+      // Chama o seu método original que retorna a resposta em String diretamente
+      final result = await _gemmaService.perguntarGemma(q);
+      
       if (mounted) {
         setState(() {
-          _messages.add({"role": "gemma", "text": result.message});
+          _messages.add({
+            "role": "gemma", 
+            // Tratamento caso o retorno seja nulo ou vazio
+            "text": (result != null && result.isNotEmpty) ? result : "Sem resposta do modelo."
+          });
           _isThinking = false;
         });
       }
@@ -82,9 +86,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                       final msg = _messages[index];
                       final isUser = msg['role'] == 'user';
                       return Align(
-                        alignment: isUser
-                            ? Alignment.centerRight
-                            : Alignment.centerLeft,
+                        alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
                         child: Container(
                           margin: const EdgeInsets.symmetric(vertical: 4),
                           padding: const EdgeInsets.all(12),
@@ -92,9 +94,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                             maxWidth: MediaQuery.of(context).size.width * 0.75,
                           ),
                           decoration: BoxDecoration(
-                            color: isUser
-                                ? Colors.green
-                                : Colors.grey.shade200,
+                            color: isUser ? Colors.green : Colors.grey.shade200,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
@@ -109,18 +109,17 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                     },
                   ),
           ),
-
           if (_isThinking)
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Row(children: [
-                CircularProgressIndicator(strokeWidth: 2, color: Colors.green),
-                SizedBox(width: 8),
-                Text("Gemma 4 is checking data...",
-                    style: TextStyle(color: Colors.grey)),
-              ]),
+              child: Row(
+                children: [
+                  CircularProgressIndicator(strokeWidth: 2, color: Colors.green),
+                  SizedBox(width: 8),
+                  Text("Gemma 4 is checking data...", style: TextStyle(color: Colors.grey)),
+                ],
+              ),
             ),
-
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -137,8 +136,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                     decoration: const InputDecoration(
                       hintText: "Do we have organic milk?",
                       border: OutlineInputBorder(),
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
                     maxLines: 2,
                     minLines: 1,
@@ -160,11 +158,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               ],
             ),
           ),
-
           const Padding(
             padding: EdgeInsets.only(bottom: 8),
-            child: Text("Powered by Gemma 4",
-                style: TextStyle(fontSize: 11, color: Colors.grey)),
+            child: Text("Powered by Gemma 4", style: TextStyle(fontSize: 11, color: Colors.grey)),
           ),
         ],
       ),
