@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/product.dart';
-import '../core/gemma_service.dart';
+import '../../core/gemma_service.dart';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -12,6 +12,7 @@ class FeedScreen extends StatefulWidget {
 class _FeedScreenState extends State<FeedScreen> {
   final TextEditingController _controller = TextEditingController();
   final List<Widget> _feedItems = [];
+  final GemmaService _gemmaService = GemmaService();
 
   void _handleSend() async {
     final text = _controller.text;
@@ -22,15 +23,14 @@ class _FeedScreenState extends State<FeedScreen> {
       _controller.clear();
     });
 
-    final response = await GemmaService.processUserRequest(text);
+    final response = await _gemmaService.processQuery(text);
 
     setState(() {
-      _feedItems.add(_buildChatBubble(response.text, isUser: false));
+      _feedItems.add(_buildChatBubble(response.message, isUser: false));
 
-      if (response.action == GemmaAction.showProduct && response.products != null) {
-        for (var prod in response.products!) {
-          _feedItems.add(_buildProductCard(prod));
-        }
+      if (response.command == BotCommand.showProduct && response.payload != null) {
+        // Here we could fetch the product from a service if needed
+        // For now, just show the message
       }
     });
   }
@@ -51,6 +51,9 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Widget _buildProductCard(Product product) {
+    final daysLeft = product.expiryDate.difference(DateTime.now()).inDays;
+    final isRescue = daysLeft <= 3;
+
     return Container(
       margin: const EdgeInsets.all(15),
       padding: const EdgeInsets.all(15),
@@ -58,7 +61,7 @@ class _FeedScreenState extends State<FeedScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
         boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 5)],
-        border: Border.all(color: product.isRescue ? Colors.redAccent : Colors.green, width: 2),
+        border: Border.all(color: isRescue ? Colors.redAccent : Colors.green, width: 2),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -67,7 +70,7 @@ class _FeedScreenState extends State<FeedScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(product.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              if (product.isRescue)
+              if (isRescue)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(5)),
@@ -104,15 +107,8 @@ class _FeedScreenState extends State<FeedScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('LogiFlow Agent'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.inventory),
-            tooltip: 'Access Stock',
-            onPressed: () {
-              // Navigate to stock screen (if implemented)
-            },
-          ),
-        ],
+        backgroundColor: Colors.green,
+        foregroundColor: Colors.white,
       ),
       body: Column(
         children: [
@@ -130,7 +126,7 @@ class _FeedScreenState extends State<FeedScreen> {
                   child: TextField(
                     controller: _controller,
                     decoration: const InputDecoration(
-                      hintText: 'Ask the agent for help or type a message...',
+                      hintText: 'Ask the agent for help...',
                       border: OutlineInputBorder(),
                     ),
                   ),

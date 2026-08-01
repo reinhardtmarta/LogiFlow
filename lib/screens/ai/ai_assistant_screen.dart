@@ -11,8 +11,7 @@ class AiAssistantScreen extends StatefulWidget {
 }
 
 class _AiAssistantScreenState extends State<AiAssistantScreen> {
-  // Instância do serviço criada para resolver o erro de "getter not defined"
-  final LogiFlowGemmaService _gemmaService = LogiFlowGemmaService();
+  final GemmaService _gemmaService = GemmaService();
 
   final TextEditingController _promptController = TextEditingController();
   final List<Map<String, String>> _messages = [];

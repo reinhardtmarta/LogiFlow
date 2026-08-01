@@ -1,6 +1,6 @@
 class Product {
   final String? id;
-  final String userId; // can be UUID string from Supabase or numeric string from local DB
+  final String userId;
   final String name;
   final int quantity;
   final double price;
@@ -29,9 +29,7 @@ class Product {
     this.wastePreventedKg = 0.0,
   });
 
-  // Factory that handles both the local SQLite shape and the Supabase (joined) shape
   factory Product.fromMap(Map<String, dynamic> map) {
-    // Local SQLite shape (v2): id int, user_id int, qty, expiry_date as string
     if (map.containsKey('user_id') || map.containsKey('qty')) {
       final dynamic uid = map['user_id'];
       final String userIdStr = uid != null ? uid.toString() : '';
@@ -52,22 +50,26 @@ class Product {
         wastePreventedKg: (map['waste_prevented_kg'] as num? ?? 0.0).toDouble(),
       );
     }
-
-    // Fallback: try to parse as Supabase joined row where inventory fields are top-level and product details nested
     return Product.fromSupabase(map);
   }
 
-  // Create a Product from a Supabase inventory row joined with products
   factory Product.fromSupabase(Map<String, dynamic> map) {
-    // Possible structures:
-    // { id: inventory_id, product_id, quantity, expiry_date, address, products: { id, seller_id, name, price, ... } }
-    final productNested = map['products'] ?? map['product'] ?? map['products'][0] ?? null;
+    Map<String, dynamic>? productNested;
+    final productsData = map['products'];
+    
+    if (productsData is Map) {
+      productNested = Map<String, dynamic>.from(productsData);
+    } else if (productsData is List && productsData.isNotEmpty) {
+      productNested = Map<String, dynamic>.from(productsData[0]);
+    } else if (map['product'] is Map) {
+      productNested = Map<String, dynamic>.from(map['product']);
+    }
 
     final sellerId = productNested != null ? (productNested['seller_id'] ?? productNested['user_id']) : null;
     final name = productNested != null ? (productNested['name'] ?? '') : (map['name'] ?? '');
     final priceVal = productNested != null ? (productNested['price'] ?? 0) : (map['price'] ?? 0);
 
-    final expiryRaw = map['expiry_date'] ?? map['expiry_date'] as String?;
+    final expiryRaw = map['expiry_date'];
     DateTime expiry = DateTime.now();
     if (expiryRaw != null) {
       try {
@@ -80,7 +82,7 @@ class Product {
     return Product(
       id: map['id'] != null ? map['id'].toString() : null,
       userId: sellerId != null ? sellerId.toString() : '',
-      name: name as String,
+      name: name.toString(),
       quantity: (map['quantity'] ?? map['qty'] ?? 0) as int,
       price: (priceVal as num).toDouble(),
       expiryDate: expiry,

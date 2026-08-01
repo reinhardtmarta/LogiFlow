@@ -22,44 +22,44 @@ class BotResponse {
   });
 }
 
-class LogiFlowGemmaService {
-  static const String _apiKey = 'GEMINI_API_KEY';
-  static const String _modelName = 'gemma-4-26b-a4b';
+class GemmaService {
+  static final GemmaService _instance = GemmaService._internal();
+  factory GemmaService() => _instance;
+  GemmaService._internal();
 
-  late GenerativeModel _model;
+  static const String _apiKey = String.fromEnvironment('GEMINI_API_KEY');
+  static const String _modelName = 'gemini-1.5-flash'; // Standard model name
 
-  LogiFlowGemmaService() {
-    _model = GenerativeModel(
+  GenerativeModel? _model;
+
+  GenerativeModel get model {
+    _model ??= GenerativeModel(
       model: _modelName,
       apiKey: _apiKey,
       generationConfig: GenerationConfig(
-        temperature: 0.0,
+        temperature: 0.7,
         responseMimeType: 'application/json',
       ),
-      systemInstruction: Content.system('''
-You are a technical inventory search agent.
-REQUIRED CONTEXT: This application is strictly a BRIDGE between sellers. You are NOT a store.
-OPERATING RULES:
-1. Exclusive Focus: Respond ONLY to the existence and location of products.
-2. Sales Prohibition: NEVER make sales, NEVER quote final prices, and NEVER offer discounts.
-3. Privacy: NEVER Answer questions about users, customers, or personal data. If prompted, refuse.
-4. Size: The "message" field must have a maximum of 15 words. State only the facts.
-5. Format: Generate ONLY one valid JSON object.
-
-JSON STRUCTURE:
-{
-"command": "<showProduct, listProducts, updateStock, help, chat>",
-"message": "<your short answer of up to 15 words>",
-"payload": {"query": "<technical name or id of the extracted product>"}
-}
-'''),
     );
+    return _model!;
+  }
+
+  Future<String?> perguntarGemma(String query) async {
+    final response = await processQuery(query);
+    return response.message;
   }
 
   Future<BotResponse> processQuery(String input) async {
+    if (_apiKey.isEmpty || _apiKey == 'GEMINI_API_KEY') {
+      return BotResponse(
+        command: BotCommand.error,
+        message: 'API Key not configured. Please use --dart-define=GEMINI_API_KEY=...',
+      );
+    }
+
     try {
       final content = [Content.text(input)];
-      final response = await _model.generateContent(content);
+      final response = await model.generateContent(content);
 
       if (response.text == null || response.text!.isEmpty) {
         return BotResponse(
@@ -84,8 +84,8 @@ JSON STRUCTURE:
     } catch (e) {
       return BotResponse(
         command: BotCommand.error,
-        message: 'Data processing failure (structural error).',
+        message: 'Data processing failure: ${e.toString()}',
       );
     }
   }
-} // Chave final adicionada aqui
+}

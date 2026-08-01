@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/user.dart';
 import '../../models/product.dart';
 import '../../core/database_helper.dart';
-import '../../core/gemma_service.dart'; // Certifique-se de que este é o nome do arquivo da classe LogiFkGemmaService
+import '../../core/gemma_service.dart';
 import 'add_product_screen.dart';
 
 class SellerDashboard extends StatefulWidget {
@@ -14,7 +14,7 @@ class SellerDashboard extends StatefulWidget {
 }
 
 class _SellerDashboardState extends State<SellerDashboard> {
-  final LogiFlowGemmaService _gemmaService = LogiFlowGemmaService();  // instância correta baseada em lib/core/gemma_service.dart
+  final GemmaService _gemmaService = GemmaService();
   
   List<Product> _products = [];
   String _gemmaInsight = "Loading smart suggestions from Gemma...";
@@ -27,6 +27,7 @@ class _SellerDashboardState extends State<SellerDashboard> {
   }
 
   Future<void> _loadData() async {
+    if (widget.user.id == null) return;
     final products = await DatabaseHelper.instance.getUserProducts(widget.user.id!);
     setState(() {
       _products = products;
@@ -40,16 +41,13 @@ class _SellerDashboardState extends State<SellerDashboard> {
         ? products.map((p) => '${p.name} (${p.quantity} units, expires ${p.expiryDate.toString().substring(0,10)})').join(', ')
         : "no products";
         
-    // 2. Prompt alinhado com as System Instructions da IA (Foco em dados reais, respostas curtas JSON)
     String prompt = "Analyze this stock and alert about near expiry items: $productList";
 
     try {
-      // 3. Chamada correta do método criado na classe LogiFkGemmaService
       final response = await _gemmaService.processQuery(prompt);
 
       if (mounted) {
         setState(() {
-          // O retorno já é um objeto BotResponse decodificado, basta ler o message
           _gemmaInsight = response.message;
         });
       }

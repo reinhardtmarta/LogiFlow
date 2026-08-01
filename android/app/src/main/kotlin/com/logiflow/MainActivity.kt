@@ -1,4 +1,4 @@
-package com.example.logiflow
+package com.logiflow
 
 import io.flutter.embedding.android.FlutterActivity
 
