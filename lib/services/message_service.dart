@@ -4,7 +4,10 @@ class MessageService {
   final SupabaseClient _db = Supabase.instance.client;
 
   Future<List<Map<String, dynamic>>> getMessagesBetween(String userA, String userB) async {
-    final res = await _db.from('messages').select().or('sender_id.eq.$userA,receiver_id.eq.$userB').order('created_at', ascending: true);
+    final res = await _db.from('messages')
+        .select()
+        .or('and(sender_id.eq.$userA,receiver_id.eq.$userB),and(sender_id.eq.$userB,receiver_id.eq.$userA)')
+        .order('created_at', ascending: true);
     return List<Map<String, dynamic>>.from(res as List);
   }
 

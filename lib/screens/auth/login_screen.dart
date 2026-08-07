@@ -32,15 +32,19 @@ class _LoginScreenState extends State<LoginScreen> {
         throw Exception('Authentication failed');
       }
 
-      // Cria um User local mínimo para navegar até a Home.
-      // Idealmente você deve carregar o perfil completo da tabela `profiles`.
+      // Busca o perfil completo na tabela `profiles`
+      final profile = await supabaseService.getUserProfile(
+        authUser.email ?? _emailController.text.trim(),
+      );
+
       final user = User(
-        name: '',
+        id: authUser.id,
+        name: profile?['name'] ?? '',
         email: authUser.email ?? _emailController.text.trim(),
         password: '',
-        phone: '',
-        address: '',
-        isSeller: false,
+        phone: profile?['phone'] ?? '',
+        address: profile?['address'] ?? '',
+        isSeller: profile?['is_seller'] == 1 || profile?['is_seller'] == true,
       );
 
       if (mounted) {

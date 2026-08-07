@@ -29,6 +29,16 @@ class SupabaseService {
   Future<void> saveUserData(Map<String, dynamic> data) async {
     await _client.from('profiles').upsert(data);
   }
+
+  /// Busca o perfil do usuário na tabela 'profiles'.
+  Future<Map<String, dynamic>?> getUserProfile(String email) async {
+    final res = await _client
+        .from('profiles')
+        .select()
+        .eq('email', email)
+        .maybeSingle();
+    return res;
+  }
 }
 
 // Instância única exportada para uso simples em widgets/serviços.

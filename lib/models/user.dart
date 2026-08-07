@@ -1,5 +1,5 @@
 class User {
-  final int? id;
+  final String? id;
   final String name;
   final String email;
   final String password;
@@ -31,13 +31,13 @@ class User {
 
   factory User.fromMap(Map<String, dynamic> map) {
     return User(
-      id: map['id'],
-      name: map['name'],
-      email: map['email'],
-      password: map['password'],
-      phone: map['phone'],
-      address: map['address'],
-      isSeller: map['is_seller'] == 1,
+      id: map['id']?.toString(),
+      name: map['name'] ?? '',
+      email: map['email'] ?? '',
+      password: map['password'] ?? '',
+      phone: map['phone'] ?? '',
+      address: map['address'] ?? '',
+      isSeller: (map['is_seller'] == 1) || (map['is_seller'] == true),
     );
   }
 }

@@ -27,12 +27,16 @@ class GemmaService {
   factory GemmaService() => _instance;
   GemmaService._internal();
 
+  // Segurança: Nunca hardcodar chaves. Usa String.fromEnvironment para injetar via --dart-define
   static const String _apiKey = String.fromEnvironment('GEMINI_API_KEY');
-  static const String _modelName = 'gemini-1.5-flash'; // Standard model name
+  static const String _modelName = 'gemini-1.5-flash'; 
 
   GenerativeModel? _model;
 
   GenerativeModel get model {
+    if (_apiKey.isEmpty || _apiKey == 'GEMINI_API_KEY') {
+      throw Exception('GEMINI_API_KEY not configured. Use --dart-define=GEMINI_API_KEY=your_key');
+    }
     _model ??= GenerativeModel(
       model: _modelName,
       apiKey: _apiKey,
@@ -45,8 +49,12 @@ class GemmaService {
   }
 
   Future<String?> perguntarGemma(String query) async {
-    final response = await processQuery(query);
-    return response.message;
+    try {
+      final response = await processQuery(query);
+      return response.message;
+    } catch (e) {
+      return "Erro ao processar consulta: ${e.toString()}";
+    }
   }
 
   Future<BotResponse> processQuery(String input) async {
