@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../../models/product.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import '../../models/user.dart';
 import '../../screens/chat/chat_screen.dart';
 
 class GeneralFeedScreen extends StatefulWidget {
   final User user;
-  const GeneralFeedScreen({super.key, required this.user});
+
+  const GeneralFeedScreen({
+    super.key,
+    required this.user,
+  });
 
   @override
   State<GeneralFeedScreen> createState() => _GeneralFeedScreenState();
@@ -24,26 +29,44 @@ class _GeneralFeedScreenState extends State<GeneralFeedScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final client = Supabase.instance.client;
 
-    // Query inventory joined with products to get combined view
-    final res = await client.from('inventory').select('*, products(*)').order('updated_at', ascending: false).limit(100);
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('products')
+          .orderBy('updatedAt', descending: true)
+          .limit(100)
+          .get();
 
-    final List<Product> items = [];
-    if (res != null) {
-      for (var row in res as List) {
+      final List<Product> items = [];
+
+      for (final doc in snapshot.docs) {
         try {
-          items.add(Product.fromSupabase(Map<String, dynamic>.from(row)));
-        } catch (_) {
-          // skip malformed
+          items.add(
+            Product.fromFirestore({
+              'id': doc.id,
+              ...doc.data(),
+            }),
+          );
+        } catch (e) {
+          debugPrint('Erro ao carregar produto ${doc.id}: $e');
         }
       }
-    }
 
-    setState(() {
-      _products = items;
-      _loading = false;
-    });
+      if (!mounted) return;
+
+      setState(() {
+        _products = items;
+        _loading = false;
+      });
+    } catch (e) {
+      debugPrint('Erro ao carregar feed: $e');
+
+      if (!mounted) return;
+
+      setState(() {
+        _loading = false;
+      });
+    }
   }
 
   @override
@@ -55,48 +78,94 @@ class _GeneralFeedScreenState extends State<GeneralFeedScreen> {
         foregroundColor: Colors.white,
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+              child: CircularProgressIndicator(),
+            )
           : RefreshIndicator(
               onRefresh: _load,
-              child: ListView.builder(
-                padding: const EdgeInsets.all(12),
-                itemCount: _products.length,
-                itemBuilder: (context, index) {
-                  final p = _products[index];
-                  final days = p.expiryDate.difference(DateTime.now()).inDays;
-                  final isUrgent = days <= 3;
+              child: _products.isEmpty
+                  ? ListView(
+                      children: const [
+                        SizedBox(height: 200),
+                        Center(
+                          child: Text(
+                            'Nenhum produto encontrado.',
+                            style: TextStyle(fontSize: 16),
+                          ),
+                        ),
+                      ],
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(12),
+                      itemCount: _products.length,
+                      itemBuilder: (context, index) {
+                        final p = _products[index];
 
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: isUrgent ? Colors.red.shade100 : Colors.green.shade100,
-                        child: Icon(isUrgent ? Icons.warning : Icons.eco, color: isUrgent ? Colors.red : Colors.green),
-                      ),
-                      title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text("${p.quantity} units • ${p.address}"),
-                      trailing: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text("$days days left", style: const TextStyle(fontWeight: FontWeight.bold)),
-                          if (isUrgent) const Text('RESCUE', style: TextStyle(color: Colors.red, fontSize: 11, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ChatScreen(
-                              receiverId: p.userId.toString(),
-                              receiverName: 'Seller',
+                        final days =
+                            p.expiryDate.difference(DateTime.now()).inDays;
+                        final isUrgent = days <= 3;
+
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: isUrgent
+                                  ? Colors.red.shade100
+                                  : Colors.green.shade100,
+                              child: Icon(
+                                isUrgent
+                                    ? Icons.warning
+                                    : Icons.eco,
+                                color: isUrgent
+                                    ? Colors.red
+                                    : Colors.green,
+                              ),
                             ),
+                            title: Text(
+                              p.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            subtitle: Text(
+                              "${p.quantity} unidades • ${p.address}",
+                            ),
+                            trailing: Column(
+                              mainAxisAlignment:
+                                  MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  "$days dias",
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                if (isUrgent)
+                                  const Text(
+                                    "RESGATE",
+                                    style: TextStyle(
+                                      color: Colors.red,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ChatScreen(
+                                    receiverId: p.userId.toString(),
+                                    receiverName: "Vendedor",
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                         );
                       },
                     ),
-                  );
-                },
-              ),
             ),
     );
   }
