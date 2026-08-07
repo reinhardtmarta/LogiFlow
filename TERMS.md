@@ -1,10 +1,11 @@
-# Termo de Responsabilidade - LogiFlow
+# Terms of Responsibility - LogiFlow
 
-Ao utilizar a plataforma LogiFlow para realizar doações, vendas ou trocas de alimentos, o usuário concorda com os seguintes termos:
+By using the LogiFlow platform to donate, sell, or exchange food, the user agrees to the following terms:
 
-1. O usuário declara que as informações fornecidas sobre o alimento (quantidade, estado, data de validade, condições de armazenamento) são verdadeiras e que o alimento está em condições seguras de consumo no momento da oferta.
-2. O LogiFlow atua como plataforma de conexão entre ofertantes e interessados. O LogiFlow não assume responsabilidade legal pelo estado dos alimentos ofertados.
-3. Ao aceitar este termo, o usuário concorda em seguir boas práticas de higiene e transporte ao preparar itens para doação ou venda.
-4. O usuário concorda em indenizar e isentar o LogiFlow de quaisquer reclamações relacionadas ao consumo de alimentos ofertados por ele.
+1. The user declares that the information provided regarding the food (quantity, condition, expiration date, storage conditions) is accurate and that the food is safe for consumption at the time it is offered.
+2. LogiFlow acts as a platform connecting those offering food with interested parties. LogiFlow assumes no legal liability regarding the condition of the food offered.
+3. By accepting these terms, the user agrees to adhere to good hygiene and transport practices when preparing items for donation or sale.
+4. The user agrees to indemnify and hold LogiFlow harmless against any claims related to the consumption of food offered by the user.
+5. Personal data and banking information should not be entered into the application.
 
-**Se você não concorda com estes termos, NÃO utilize a plataforma para ofertar alimentos.**
+**If you do not agree to these terms, DO NOT use the platform to offer food.**
