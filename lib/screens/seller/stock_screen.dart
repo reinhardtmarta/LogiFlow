@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 import '../../models/product.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/inventory_service.dart';
 
 class StockScreen extends StatefulWidget {
@@ -22,47 +24,80 @@ class _StockScreenState extends State<StockScreen> {
 
   Future<void> _loadStock() async {
     setState(() => _isLoading = true);
-    final client = Supabase.instance.client;
-    final userId = client.auth.currentUser?.id;
-    if (userId == null) {
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+
+      if (user == null) {
+        setState(() {
+          _stock = [];
+          _isLoading = false;
+        });
+        return;
+      }
+
+      final snapshot = await FirebaseFirestore.instance
+          .collection('products')
+          .where('sellerId', isEqualTo: user.uid)
+          .orderBy('updatedAt', descending: true)
+          .get();
+
+      final List<Product> items = [];
+
+      for (final doc in snapshot.docs) {
+        try {
+          items.add(
+            Product.fromFirestore({
+              'id': doc.id,
+              ...doc.data(),
+            }),
+          );
+        } catch (e) {
+          debugPrint('Erro ao ler produto ${doc.id}: $e');
+        }
+      }
+
+      if (!mounted) return;
+
       setState(() {
-        _stock = [];
+        _stock = items;
         _isLoading = false;
       });
-      return;
+    } catch (e) {
+      debugPrint('Erro ao carregar estoque: $e');
+
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+      });
     }
-
-    // Select inventory joined with products where product.seller_id == userId
-    final res = await client.from('inventory').select('*, products(*)').eq('products.seller_id', userId).order('updated_at', ascending: false);
-
-    final items = <Product>[];
-    if (res != null) {
-      for (var row in res as List) {
-        try {
-          items.add(Product.fromSupabase(Map<String, dynamic>.from(row)));
-        } catch (_) {}
-      }
-    }
-
-    setState(() {
-      _stock = items;
-      _isLoading = false;
-    });
   }
 
-  void _updateQty(Product product, int change) async {
+  Future<void> _updateQty(Product product, int change) async {
     final newQty = (product.quantity + change).clamp(0, 999);
-    // Use inventoryService to set stock (upsert)
-    await inventoryService.setStock(product.id!, newQty, location: product.address, address: product.address);
+
+    await inventoryService.setStock(
+      product.id!,
+      newQty,
+      location: product.address,
+      address: product.address,
+    );
+
     await _loadStock();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('My Stock Management'), backgroundColor: Colors.green),
+      appBar: AppBar(
+        title: const Text('My Stock Management'),
+        backgroundColor: Colors.green,
+      ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+              child: CircularProgressIndicator(),
+            )
           : Column(
               children: [
                 _buildStatusFilter(),
@@ -71,28 +106,50 @@ class _StockScreenState extends State<StockScreen> {
                     itemCount: _stock.length,
                     itemBuilder: (context, index) {
                       final item = _stock[index];
-                      final daysLeft = item.expiryDate.difference(DateTime.now()).inDays;
+
+                      final daysLeft =
+                          item.expiryDate.difference(DateTime.now()).inDays;
                       final isExpiring = daysLeft <= 3;
 
                       return Card(
-                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         child: ListTile(
                           leading: CircleAvatar(
-                            backgroundColor: isExpiring ? Colors.red[100] : Colors.green[100],
-                            child: Icon(Icons.inventory, color: isExpiring ? Colors.red : Colors.green),
+                            backgroundColor: isExpiring
+                                ? Colors.red.shade100
+                                : Colors.green.shade100,
+                            child: Icon(
+                              Icons.inventory,
+                              color: isExpiring
+                                  ? Colors.red
+                                  : Colors.green,
+                            ),
                           ),
-                          title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          title: Text(
+                            item.name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                           subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment:
+                                CrossAxisAlignment.start,
                             children: [
                               Text('Status: ${item.condition}'),
                               Text(
                                 isExpiring
-                                    ? '⚠️ $daysLeft days until expiry!'
-                                    : 'Expires in $daysLeft days',
+                                    ? '⚠️ $daysLeft dias para vencer'
+                                    : 'Vence em $daysLeft dias',
                                 style: TextStyle(
-                                  color: isExpiring ? Colors.red : Colors.black54,
-                                  fontWeight: isExpiring ? FontWeight.bold : FontWeight.normal,
+                                  color: isExpiring
+                                      ? Colors.red
+                                      : Colors.black54,
+                                  fontWeight: isExpiring
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
                                 ),
                               ),
                             ],
@@ -100,9 +157,21 @@ class _StockScreenState extends State<StockScreen> {
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              IconButton(icon: const Icon(Icons.remove_circle_outline), onPressed: () => _updateQty(item, -1)),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.remove_circle_outline,
+                                ),
+                                onPressed: () =>
+                                    _updateQty(item, -1),
+                              ),
                               Text('${item.quantity}'),
-                              IconButton(icon: const Icon(Icons.add_circle_outline), onPressed: () => _updateQty(item, 1)),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.add_circle_outline,
+                                ),
+                                onPressed: () =>
+                                    _updateQty(item, 1),
+                              ),
                             ],
                           ),
                         ),
@@ -121,9 +190,18 @@ class _StockScreenState extends State<StockScreen> {
       color: Colors.grey[100],
       child: ListView(
         scrollDirection: Axis.horizontal,
-        children: ['All', 'New', 'Cleaned', 'Packaged', 'Expiring'].map((status) {
+        children: [
+          'All',
+          'New',
+          'Cleaned',
+          'Packaged',
+          'Expiring',
+        ].map((status) {
           return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: 8,
+            ),
             child: ActionChip(
               label: Text(status),
               onPressed: () {},
