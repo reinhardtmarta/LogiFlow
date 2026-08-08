@@ -29,88 +29,41 @@ class Product {
     this.wastePreventedKg = 0.0,
   });
 
-  factory Product.fromMap(Map<String, dynamic> map) {
-    if (map.containsKey('user_id') || map.containsKey('qty')) {
-      final dynamic uid = map['user_id'];
-      final String userIdStr = uid != null ? uid.toString() : '';
-      final expiryRaw = map['expiry_date'] as String? ?? DateTime.now().toIso8601String();
-      return Product(
-        id: map['id'] != null ? map['id'].toString() : null,
-        userId: userIdStr,
-        name: map['name'] as String? ?? '',
-        quantity: (map['qty'] ?? map['quantity'] ?? 0) as int,
-        price: ((map['price'] ?? 0) as num).toDouble(),
-        expiryDate: DateTime.parse(expiryRaw),
-        condition: map['condition'] as String? ?? '',
-        isProducer: (map['is_producer'] as int? ?? 0) == 1,
-        address: map['address'] as String? ?? '',
-        imagePath: map['image_path'] as String?,
-        category: map['category'] as String? ?? 'Other',
-        isRescue: (map['is_rescue'] as int? ?? 0) == 1,
-        wastePreventedKg: (map['waste_prevented_kg'] as num? ?? 0.0).toDouble(),
-      );
-    }
-    return Product.fromSupabase(map);
-  }
-
-  factory Product.fromSupabase(Map<String, dynamic> map) {
-    Map<String, dynamic>? productNested;
-    final productsData = map['products'];
-    
-    if (productsData is Map) {
-      productNested = Map<String, dynamic>.from(productsData);
-    } else if (productsData is List && productsData.isNotEmpty) {
-      productNested = Map<String, dynamic>.from(productsData[0]);
-    } else if (map['product'] is Map) {
-      productNested = Map<String, dynamic>.from(map['product']);
-    }
-
-    final sellerId = productNested != null ? (productNested['seller_id'] ?? productNested['user_id']) : null;
-    final name = productNested != null ? (productNested['name'] ?? '') : (map['name'] ?? '');
-    final priceVal = productNested != null ? (productNested['price'] ?? 0) : (map['price'] ?? 0);
-
-    final expiryRaw = map['expiry_date'];
-    DateTime expiry = DateTime.now();
-    if (expiryRaw != null) {
-      try {
-        expiry = DateTime.parse(expiryRaw.toString());
-      } catch (_) {
-        expiry = DateTime.now();
-      }
-    }
-
+  factory Product.fromFirestore(String id, Map<String, dynamic> data) {
     return Product(
-      id: map['id'] != null ? map['id'].toString() : null,
-      userId: sellerId != null ? sellerId.toString() : '',
-      name: name.toString(),
-      quantity: (map['quantity'] ?? map['qty'] ?? 0) as int,
-      price: (priceVal as num).toDouble(),
-      expiryDate: expiry,
-      condition: map['condition'] as String? ?? '',
-      isProducer: (productNested != null ? (productNested['is_producer'] ?? 0) : 0) == 1,
-      address: (map['address'] ?? (productNested != null ? productNested['address'] : '')) as String? ?? '',
-      imagePath: productNested != null ? productNested['image_path'] as String? : null,
-      category: productNested != null ? (productNested['category'] as String? ?? 'Other') : 'Other',
-      isRescue: ((productNested != null ? productNested['is_rescue'] : null) as int? ?? 0) == 1,
-      wastePreventedKg: (map['waste_prevented_kg'] as num? ?? 0.0).toDouble(),
+      id: id,
+      userId: data['seller_id'] ?? data['user_id'] ?? '',
+      name: data['name'] ?? '',
+      quantity: (data['quantity'] ?? data['qty'] ?? 0) as int,
+      price: ((data['price'] ?? 0) as num).toDouble(),
+      expiryDate: data['expiry_date'] != null 
+          ? DateTime.parse(data['expiry_date'].toString()) 
+          : DateTime.now(),
+      condition: data['condition'] ?? '',
+      isProducer: data['is_producer'] == true || data['is_producer'] == 1,
+      address: data['address'] ?? '',
+      imagePath: data['image_path'],
+      category: data['category'] ?? 'Other',
+      isRescue: data['is_rescue'] == true || data['is_rescue'] == 1,
+      wastePreventedKg: ((data['waste_prevented_kg'] ?? 0.0) as num).toDouble(),
     );
   }
 
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toFirestore() {
     return {
-      'id': id,
-      'user_id': userId,
+      'seller_id': userId,
       'name': name,
-      'qty': quantity,
+      'quantity': quantity,
       'price': price,
       'expiry_date': expiryDate.toIso8601String(),
       'condition': condition,
-      'is_producer': isProducer ? 1 : 0,
+      'is_producer': isProducer,
       'address': address,
       'image_path': imagePath,
       'category': category,
-      'is_rescue': isRescue ? 1 : 0,
+      'is_rescue': isRescue,
       'waste_prevented_kg': wastePreventedKg,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
     };
   }
 }

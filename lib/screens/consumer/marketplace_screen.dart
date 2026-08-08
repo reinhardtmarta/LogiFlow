@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/user.dart';
 import '../../models/product.dart';
-import '../../services/product_service.dart';
+import '../../services/firestore_service.dart';
 import '../chat/chat_screen.dart';
 
 class MarketplaceScreen extends StatefulWidget {
@@ -13,38 +13,8 @@ class MarketplaceScreen extends StatefulWidget {
 }
 
 class _MarketplaceScreenState extends State<MarketplaceScreen> {
-  List<Product> _products = [];
-  List<Product> _filteredProducts = [];
-  bool _isLoading = true;
   final TextEditingController _searchController = TextEditingController();
-  final ProductService _productService = ProductService();
-
-  @override
-  void initState() {
-    super.initState();
-    _loadProducts();
-  }
-
-  Future<void> _loadProducts() async {
-    setState(() => _isLoading = true);
-    final products = await _productService.getAllProducts();
-    setState(() {
-      _products = products;
-      _filteredProducts = products;
-      _isLoading = false;
-    });
-  }
-
-  void _filterProducts(String query) {
-    setState(() {
-      _filteredProducts = query.isEmpty
-          ? _products
-          : _products
-              .where((p) =>
-                  p.name.toLowerCase().contains(query.toLowerCase()))
-              .toList();
-    });
-  }
+  String _searchQuery = "";
 
   @override
   Widget build(BuildContext context) {
@@ -65,60 +35,75 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
                 prefixIcon: Icon(Icons.search),
                 border: OutlineInputBorder(),
               ),
-              onChanged: _filterProducts,
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value.toLowerCase();
+                });
+              },
             ),
           ),
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _filteredProducts.isEmpty
-                    ? const Center(child: Text("No products available yet"))
-                    : ListView.builder(
-                        itemCount: _filteredProducts.length,
-                        itemBuilder: (context, index) {
-                          final product = _filteredProducts[index];
-                          final daysLeft = product.expiryDate
-                              .difference(DateTime.now())
-                              .inDays;
-                          final isRescue = daysLeft <= 3;
+            child: StreamBuilder<List<Product>>(
+              stream: firestoreService.getProductsStream(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-                          return Card(
-                            margin: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 6),
-                            child: ListTile(
-                              title: Text(product.name,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold)),
-                              subtitle: Text(
-                                  "Expires in $daysLeft days • \$${product.price.toStringAsFixed(2)}"),
-                              trailing: Column(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                      "\$${product.price.toStringAsFixed(2)}",
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold)),
-                                  if (isRescue)
-                                    const Icon(Icons.warning,
-                                        color: Colors.red, size: 18),
-                                ],
+                if (snapshot.hasError) {
+                  return Center(child: Text("Error: ${snapshot.error}"));
+                }
+
+                final products = snapshot.data ?? [];
+                final filteredProducts = products.where((p) {
+                  return p.name.toLowerCase().contains(_searchQuery);
+                }).toList();
+
+                if (filteredProducts.isEmpty) {
+                  return const Center(child: Text("No products available yet"));
+                }
+
+                return ListView.builder(
+                  itemCount: filteredProducts.length,
+                  itemBuilder: (context, index) {
+                    final product = filteredProducts[index];
+                    final daysLeft = product.expiryDate.difference(DateTime.now()).inDays;
+                    final isRescue = daysLeft <= 3;
+
+                    return Card(
+                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      child: ListTile(
+                        leading: product.imagePath != null 
+                            ? Image.network(product.imagePath!, width: 50, height: 50, fit: BoxFit.cover)
+                            : const Icon(Icons.fastfood, color: Colors.green),
+                        title: Text(product.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text("Expires in $daysLeft days • \$${product.price.toStringAsFixed(2)}"),
+                        trailing: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text("\$${product.price.toStringAsFixed(2)}", 
+                                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                            if (isRescue)
+                              const Icon(Icons.warning, color: Colors.red, size: 18),
+                          ],
+                        ),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ChatScreen(
+                                receiverId: product.userId,
+                                receiverName: "Seller",
                               ),
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => ChatScreen(
-                                      receiverId: product.userId.toString(),
-                                      receiverName: "Seller",
-                                    ),
-                                  ),
-                                );
-                              },
                             ),
                           );
                         },
                       ),
+                    );
+                  },
+                );
+              },
+            ),
           ),
         ],
       ),

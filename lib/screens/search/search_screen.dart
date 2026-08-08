@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../services/product_service.dart';
 import '../../models/product.dart';
+import '../../services/firestore_service.dart';
 import '../chat/chat_screen.dart';
-import '../../models/user.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -12,76 +11,86 @@ class SearchScreen extends StatefulWidget {
 }
 
 class _SearchScreenState extends State<SearchScreen> {
-  List<Product> _results = [];
-  final _controller = TextEditingController();
-  bool _loading = false;
-  final ProductService _productService = ProductService();
-
-  Future<void> _search(String query) async {
-    if (query.trim().isEmpty) {
-      setState(() => _results = []);
-      return;
-    }
-    setState(() => _loading = true);
-    final filtered = await _productService.searchProducts(query);
-    setState(() {
-      _results = filtered;
-      _loading = false;
-    });
-  }
+  final TextEditingController _searchController = TextEditingController();
+  String _query = "";
 
   @override
   Widget build(BuildContext context) {
-    final user = ModalRoute.of(context)?.settings.arguments as User?;
-
     return Scaffold(
-      appBar: AppBar(title: const Text("Search Rescue Items")),
+      appBar: AppBar(
+        title: const Text('Search Food'),
+        backgroundColor: Colors.green,
+      ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(16.0),
             child: TextField(
-              controller: _controller,
-              decoration: const InputDecoration(
-                hintText: "Search milk, bread, avocado...",
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search for bread, milk, fruits...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() => _query = "");
+                  },
+                ),
+                border: const OutlineInputBorder(),
               ),
-              onChanged: _search,
+              onChanged: (value) {
+                setState(() => _query = value.toLowerCase());
+              },
             ),
           ),
           Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _results.isEmpty
-                    ? const Center(
-                        child: Text("No results. Try another search."))
-                    : ListView.builder(
-                        itemCount: _results.length,
-                        itemBuilder: (context, i) {
-                          final p = _results[i];
-                          return ListTile(
-                            title: Text(p.name),
-                            subtitle: Text(
-                                "${p.quantity} units • Expires: ${p.expiryDate.toString().substring(0, 10)}"),
-                            trailing: Text(
-                                "\$${p.price.toStringAsFixed(2)}",
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold)),
-                            onTap: user == null
-                                ? null
-                                : () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => ChatScreen(
-                                          receiverId: p.userId.toString(),
-                                          receiverName: "Seller",
-                                        ),
-                                      ),
-                                    ),
-                          );
-                        },
-                      ),
+            child: StreamBuilder<List<Product>>(
+              stream: firestoreService.getProductsStream(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final products = snapshot.data ?? [];
+                final filtered = products.where((p) => 
+                  p.name.toLowerCase().contains(_query) || 
+                  p.category.toLowerCase().contains(_query)
+                ).toList();
+
+                if (_query.isEmpty) {
+                  return const Center(child: Text("Type something to search"));
+                }
+
+                if (filtered.isEmpty) {
+                  return const Center(child: Text("No products found"));
+                }
+
+                return ListView.builder(
+                  itemCount: filtered.length,
+                  itemBuilder: (context, index) {
+                    final product = filtered[index];
+                    return ListTile(
+                      leading: const Icon(Icons.search_off_outlined),
+                      title: Text(product.name),
+                      subtitle: Text(product.category),
+                      trailing: Text('\$${product.price.toStringAsFixed(2)}'),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ChatScreen(
+                              receiverId: product.userId,
+                              receiverName: "Seller",
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -90,7 +99,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   void dispose() {
-    _controller.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 }

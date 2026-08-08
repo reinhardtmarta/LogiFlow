@@ -17,27 +17,30 @@ class User {
     required this.isSeller,
   });
 
-  Map<String, dynamic> toMap() {
+  factory User.fromFirestore(String id, Map<String, dynamic> data) {
+    return User(
+      id: id,
+      name: data['name'] ?? '',
+      email: data['email'] ?? '',
+      password: '', // Senha nunca deve ser lida do banco por segurança
+      phone: data['phone'] ?? '',
+      address: data['address'] ?? '',
+      isSeller: data['is_seller'] == true || data['is_seller'] == 1,
+    );
+  }
+
+  Map<String, dynamic> toFirestore() {
     return {
-      'id': id,
       'name': name,
       'email': email,
-      'password': password,
       'phone': phone,
       'address': address,
-      'is_seller': isSeller ? 1 : 0,
+      'is_seller': isSeller,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
     };
   }
 
-  factory User.fromMap(Map<String, dynamic> map) {
-    return User(
-      id: map['id']?.toString(),
-      name: map['name'] ?? '',
-      email: map['email'] ?? '',
-      password: map['password'] ?? '',
-      phone: map['phone'] ?? '',
-      address: map['address'] ?? '',
-      isSeller: (map['is_seller'] == 1) || (map['is_seller'] == true),
-    );
-  }
+  // Compatibilidade com SQLite se necessário
+  Map<String, dynamic> toMap() => toFirestore();
+  factory User.fromMap(Map<String, dynamic> map) => User.fromFirestore(map['id']?.toString() ?? '', map);
 }

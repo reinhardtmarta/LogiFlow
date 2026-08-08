@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:logiflow/services/supabase_service.dart';
-import '../../models/user.dart';
+import 'package:logiflow/services/firebase_service.dart';
 import 'login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -33,21 +32,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Registra no Auth do Supabase
-      final res = await supabaseService.signUp(
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
-        _nameController.text.trim(),
+      // Registra no Firebase Auth
+      final credential = await firebaseService.auth.createUserWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
       );
 
-      // Salva os dados adicionais na tabela `profiles`
-      await supabaseService.saveUserData({
-        'email': _emailController.text.trim(),
-        'name': _nameController.text.trim(),
-        'phone': _phoneController.text.trim(),
-        'address': _addressController.text.trim(),
-        'is_seller': _isSeller ? 1 : 0,
-      });
+      final user = credential.user;
+      if (user != null) {
+        // Salva os dados adicionais no Firestore
+        await firebaseService.saveUserData(user.uid, {
+          'uid': user.uid,
+          'email': _emailController.text.trim(),
+          'name': _nameController.text.trim(),
+          'phone': _phoneController.text.trim(),
+          'address': _addressController.text.trim(),
+          'is_seller': _isSeller,
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+        });
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

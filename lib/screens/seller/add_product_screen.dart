@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../../models/product.dart';
-import '../../core/database_helper.dart';
+import '../../services/firestore_service.dart';
 import '../../models/user.dart';
 
 class AddProductScreen extends StatefulWidget {
@@ -61,33 +61,40 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
     setState(() => _isLoading = true);
 
-    // Construtor completamente alinhado com o arquivo product.dart
-    final product = Product(
-      userId: widget.user.id.toString(), // Convert int to String
-      name: _nameController.text.trim(),
-      quantity: int.tryParse(_qtyController.text) ?? 1,
-      price: double.tryParse(_priceController.text) ?? 0.0,
-      expiryDate: _expiryDate,
-      condition: _condition,
-      isProducer: _isProducer,
-      address: _addressController.text.trim().isEmpty
-          ? "Local Address"
-          : _addressController.text.trim(),
-      imagePath: _selectedImage?.path,
-      category: _category,
-      isRescue: _isRescue,
-    );
-
-    // Inserção real no banco de dados SQLite
-    await DatabaseHelper.instance.insertProduct(product);
-
-    setState(() => _isLoading = false);
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Product published successfully!"), backgroundColor: Colors.green),
+    try {
+      final product = Product(
+        userId: widget.user.id!,
+        name: _nameController.text.trim(),
+        quantity: int.tryParse(_qtyController.text) ?? 1,
+        price: double.tryParse(_priceController.text) ?? 0.0,
+        expiryDate: _expiryDate,
+        condition: _condition,
+        isProducer: _isProducer,
+        address: _addressController.text.trim().isEmpty
+            ? widget.user.address
+            : _addressController.text.trim(),
+        imagePath: null, // No Firestore real, faríamos upload para o Storage primeiro
+        category: _category,
+        isRescue: _isRescue,
+        wastePreventedKg: (int.tryParse(_qtyController.text) ?? 1) * 0.5, // Estimativa
       );
-      Navigator.pop(context, true);
+
+      await firestoreService.addProduct(product);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Product published successfully!"), backgroundColor: Colors.green),
+        );
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -245,5 +252,14 @@ class _AddProductScreenState extends State<AddProductScreen> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _qtyController.dispose();
+    _priceController.dispose();
+    _addressController.dispose();
+    super.dispose();
   }
 }
