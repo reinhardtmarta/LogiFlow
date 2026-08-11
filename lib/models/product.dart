@@ -30,23 +30,49 @@ class Product {
   });
 
   factory Product.fromFirestore(String id, Map<String, dynamic> data) {
+    return Product.fromJson({...data, 'id': id});
+  }
+
+  factory Product.fromJson(Map<String, dynamic> data) {
+    final rawExpiryDate = data['expiry_date'] ?? data['expiryDate'];
+    final parsedExpiryDate = rawExpiryDate == null
+        ? null
+        : DateTime.tryParse(rawExpiryDate.toString());
+
     return Product(
-      id: id,
-      userId: data['seller_id'] ?? data['user_id'] ?? '',
-      name: data['name'] ?? '',
-      quantity: (data['quantity'] ?? data['qty'] ?? 0) as int,
-      price: ((data['price'] ?? 0) as num).toDouble(),
-      expiryDate: data['expiry_date'] != null 
-          ? DateTime.parse(data['expiry_date'].toString()) 
-          : DateTime.now(),
-      condition: data['condition'] ?? '',
-      isProducer: data['is_producer'] == true || data['is_producer'] == 1,
-      address: data['address'] ?? '',
-      imagePath: data['image_path'],
-      category: data['category'] ?? 'Other',
-      isRescue: data['is_rescue'] == true || data['is_rescue'] == 1,
-      wastePreventedKg: ((data['waste_prevented_kg'] ?? 0.0) as num).toDouble(),
+      id: data['id']?.toString(),
+      userId: (data['seller_id'] ?? data['user_id'] ?? data['userId'] ?? '')
+          .toString(),
+      name: (data['name'] ?? '').toString(),
+      quantity: _toInt(data['quantity'] ?? data['qty']),
+      price: _toDouble(data['price']),
+      expiryDate: parsedExpiryDate ?? DateTime.now(),
+      condition: (data['condition'] ?? '').toString(),
+      isProducer: _toBool(data['is_producer'] ?? data['isProducer']),
+      address: (data['address'] ?? '').toString(),
+      imagePath: (data['image_path'] ?? data['imagePath'])?.toString(),
+      category: (data['category'] ?? 'Other').toString(),
+      isRescue: _toBool(data['is_rescue'] ?? data['isRescue']),
+      wastePreventedKg: _toDouble(
+        data['waste_prevented_kg'] ?? data['wastePreventedKg'],
+      ),
     );
+  }
+
+  static int _toInt(dynamic value) {
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  static double _toDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '') ?? 0.0;
+  }
+
+  static bool _toBool(dynamic value) {
+    return value == true ||
+        value == 1 ||
+        value?.toString().toLowerCase() == 'true';
   }
 
   Map<String, dynamic> toFirestore() {

@@ -40,7 +40,13 @@ class _AddProductScreenState extends State<AddProductScreen> {
     "Other"
   ];
 
-  final List<String> _conditions = ["Fresh", "Ripe", "Bakery", "Near Expiry", "Frozen"];
+  final List<String> _conditions = [
+    "Fresh",
+    "Ripe",
+    "Bakery",
+    "Near Expiry",
+    "Frozen"
+  ];
 
   Future<void> _pickImage() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
@@ -73,17 +79,21 @@ class _AddProductScreenState extends State<AddProductScreen> {
         address: _addressController.text.trim().isEmpty
             ? widget.user.address
             : _addressController.text.trim(),
-        imagePath: null, // No Firestore real, faríamos upload para o Storage primeiro
+        imagePath:
+            null, // No Firestore real, faríamos upload para o Storage primeiro
         category: _category,
         isRescue: _isRescue,
-        wastePreventedKg: (int.tryParse(_qtyController.text) ?? 1) * 0.5, // Estimativa
+        wastePreventedKg:
+            (int.tryParse(_qtyController.text) ?? 1) * 0.5, // Estimativa
       );
 
       await firebaseService.addProduct(product);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Product published successfully!"), backgroundColor: Colors.green),
+          const SnackBar(
+              content: Text("Product published successfully!"),
+              backgroundColor: Colors.green),
         );
         Navigator.pop(context, true);
       }
@@ -136,7 +146,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
               ),
             ),
             const SizedBox(height: 20),
-
             TextField(
               controller: _nameController,
               decoration: const InputDecoration(
@@ -145,7 +154,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
               ),
             ),
             const SizedBox(height: 16),
-
             Row(
               children: [
                 Expanded(
@@ -172,9 +180,8 @@ class _AddProductScreenState extends State<AddProductScreen> {
               ],
             ),
             const SizedBox(height: 16),
-
             DropdownButtonFormField<String>(
-              value: _category,
+              initialValue: _category,
               decoration: const InputDecoration(
                 labelText: "Category",
                 border: OutlineInputBorder(),
@@ -185,17 +192,16 @@ class _AddProductScreenState extends State<AddProductScreen> {
               onChanged: (val) => setState(() => _category = val!),
             ),
             const SizedBox(height: 16),
-
             DropdownButtonFormField<String>(
-              value: _condition,
-              decoration: const InputDecoration(labelText: "Condition", border: OutlineInputBorder()),
+              initialValue: _condition,
+              decoration: const InputDecoration(
+                  labelText: "Condition", border: OutlineInputBorder()),
               items: _conditions
                   .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                   .toList(),
               onChanged: (val) => setState(() => _condition = val!),
             ),
             const SizedBox(height: 16),
-
             ListTile(
               title: const Text("Expiry Date"),
               subtitle: Text(_expiryDate.toString().substring(0, 10)),
@@ -213,7 +219,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
               ),
             ),
             const SizedBox(height: 16),
-
             TextField(
               controller: _addressController,
               decoration: const InputDecoration(
@@ -222,21 +227,17 @@ class _AddProductScreenState extends State<AddProductScreen> {
               ),
             ),
             const SizedBox(height: 12),
-
             SwitchListTile(
               title: const Text("I am the local producer/farmer"),
               value: _isProducer,
               onChanged: (v) => setState(() => _isProducer = v),
             ),
-
             SwitchListTile(
               title: const Text("This is a Rescue / Zero Waste item"),
               value: _isRescue,
               onChanged: (v) => setState(() => _isRescue = v),
             ),
-
             const SizedBox(height: 30),
-
             SizedBox(
               width: double.infinity,
               height: 56,
@@ -245,7 +246,8 @@ class _AddProductScreenState extends State<AddProductScreen> {
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                 child: _isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text("Publish Product", style: TextStyle(fontSize: 18, color: Colors.white)),
+                    : const Text("Publish Product",
+                        style: TextStyle(fontSize: 18, color: Colors.white)),
               ),
             ),
           ],

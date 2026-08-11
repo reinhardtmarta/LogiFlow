@@ -6,7 +6,8 @@ class ChatScreen extends StatefulWidget {
   final String receiverId;
   final String receiverName;
 
-  const ChatScreen({super.key, required this.receiverId, required this.receiverName});
+  const ChatScreen(
+      {super.key, required this.receiverId, required this.receiverName});
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -27,7 +28,8 @@ class _ChatScreenState extends State<ChatScreen> {
     if (text.isEmpty || _currentUserId == null) return;
 
     try {
-      await firebaseService.sendMessage(_currentUserId!, widget.receiverId, text);
+      await firebaseService.sendMessage(
+          _currentUserId, widget.receiverId, text);
       _messageController.clear();
       // Scroll para o final
       _scrollController.animateTo(
@@ -60,7 +62,8 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           Expanded(
             child: StreamBuilder<List<Map<String, dynamic>>>(
-              stream: firebaseService.getChatStream(_currentUserId!, widget.receiverId),
+              stream: firebaseService.getChatStream(
+                  _currentUserId, widget.receiverId),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -82,7 +85,8 @@ class _ChatScreenState extends State<ChatScreen> {
                 }
 
                 return ListView.builder(
-                  reverse: true, // Inverte para mostrar as últimas mensagens embaixo
+                  reverse:
+                      true, // Inverte para mostrar as últimas mensagens embaixo
                   controller: _scrollController,
                   padding: const EdgeInsets.all(12),
                   itemCount: messages.length,
@@ -93,10 +97,12 @@ class _ChatScreenState extends State<ChatScreen> {
                     final isMe = msg['sender_id'] == _currentUserId;
 
                     return Align(
-                      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                      alignment:
+                          isMe ? Alignment.centerRight : Alignment.centerLeft,
                       child: Container(
                         margin: const EdgeInsets.symmetric(vertical: 4),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 10),
                         decoration: BoxDecoration(
                           color: isMe ? Colors.green : Colors.grey[300],
                           borderRadius: BorderRadius.only(
@@ -107,11 +113,14 @@ class _ChatScreenState extends State<ChatScreen> {
                           ),
                         ),
                         child: Column(
-                          crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                          crossAxisAlignment: isMe
+                              ? CrossAxisAlignment.end
+                              : CrossAxisAlignment.start,
                           children: [
                             Text(
                               msg['message'] ?? '',
-                              style: TextStyle(color: isMe ? Colors.white : Colors.black),
+                              style: TextStyle(
+                                  color: isMe ? Colors.white : Colors.black),
                             ),
                           ],
                         ),
@@ -122,14 +131,13 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
           ),
-
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.grey.withOpacity(0.2),
+                  color: Colors.grey.withValues(alpha: 0.2),
                   blurRadius: 8,
                   offset: const Offset(0, -2),
                 ),

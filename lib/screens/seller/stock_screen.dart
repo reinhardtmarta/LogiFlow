@@ -22,17 +22,21 @@ class _StockScreenState extends State<StockScreen> {
   @override
   Widget build(BuildContext context) {
     if (_userId == null) {
-      return const Scaffold(body: Center(child: Text("Please login to manage stock")));
+      return const Scaffold(
+          body: Center(child: Text("Please login to manage stock")));
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('My Stock Management'), backgroundColor: Colors.green, foregroundColor: Colors.white),
+      appBar: AppBar(
+          title: const Text('My Stock Management'),
+          backgroundColor: Colors.green,
+          foregroundColor: Colors.white),
       body: Column(
         children: [
           _buildStatusFilter(),
           Expanded(
             child: StreamBuilder<List<Product>>(
-              stream: firebaseService.getSellerProductsStream(_userId!),
+              stream: firebaseService.getSellerProductsStream(_userId),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -48,17 +52,23 @@ class _StockScreenState extends State<StockScreen> {
                   itemCount: stock.length,
                   itemBuilder: (context, index) {
                     final item = stock[index];
-                    final daysLeft = item.expiryDate.difference(DateTime.now()).inDays;
+                    final daysLeft =
+                        item.expiryDate.difference(DateTime.now()).inDays;
                     final isExpiring = daysLeft <= 3;
 
                     return Card(
-                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
                       child: ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: isExpiring ? Colors.red[100] : Colors.green[100],
-                          child: Icon(Icons.inventory, color: isExpiring ? Colors.red : Colors.green),
+                          backgroundColor:
+                              isExpiring ? Colors.red[100] : Colors.green[100],
+                          child: Icon(Icons.inventory,
+                              color: isExpiring ? Colors.red : Colors.green),
                         ),
-                        title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        title: Text(item.name,
+                            style:
+                                const TextStyle(fontWeight: FontWeight.bold)),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -69,7 +79,9 @@ class _StockScreenState extends State<StockScreen> {
                                   : 'Expires in $daysLeft days',
                               style: TextStyle(
                                 color: isExpiring ? Colors.red : Colors.black54,
-                                fontWeight: isExpiring ? FontWeight.bold : FontWeight.normal,
+                                fontWeight: isExpiring
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
                               ),
                             ),
                           ],
@@ -77,9 +89,13 @@ class _StockScreenState extends State<StockScreen> {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            IconButton(icon: const Icon(Icons.remove_circle_outline), onPressed: () => _updateQty(item, -1)),
+                            IconButton(
+                                icon: const Icon(Icons.remove_circle_outline),
+                                onPressed: () => _updateQty(item, -1)),
                             Text('${item.quantity}'),
-                            IconButton(icon: const Icon(Icons.add_circle_outline), onPressed: () => _updateQty(item, 1)),
+                            IconButton(
+                                icon: const Icon(Icons.add_circle_outline),
+                                onPressed: () => _updateQty(item, 1)),
                           ],
                         ),
                       ),
@@ -100,7 +116,8 @@ class _StockScreenState extends State<StockScreen> {
       color: Colors.grey[100],
       child: ListView(
         scrollDirection: Axis.horizontal,
-        children: ['All', 'New', 'Cleaned', 'Packaged', 'Expiring'].map((status) {
+        children:
+            ['All', 'New', 'Cleaned', 'Packaged', 'Expiring'].map((status) {
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             child: ActionChip(
