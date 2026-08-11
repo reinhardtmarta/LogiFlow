@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/user.dart';
 import '../../models/product.dart';
-import '../../services/firestore_service.dart';
+import '../../services/firebase_service.dart';
 import '../../core/gemma_service.dart';
 import 'add_product_screen.dart';
 
@@ -55,7 +55,7 @@ class _SellerDashboardState extends State<SellerDashboard> {
         foregroundColor: Colors.white,
       ),
       body: StreamBuilder<List<Product>>(
-        stream: firestoreService.getSellerProductsStream(widget.user.id!),
+        stream: firebaseService.getSellerProductsStream(widget.user.id!),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/product.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../services/inventory_service.dart';
+import '../../services/firebase_service.dart';
 
 class StockScreen extends StatefulWidget {
   const StockScreen({super.key});
@@ -11,107 +11,86 @@ class StockScreen extends StatefulWidget {
 }
 
 class _StockScreenState extends State<StockScreen> {
-  List<Product> _stock = [];
-  bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadStock();
-  }
-
-  Future<void> _loadStock() async {
-    setState(() => _isLoading = true);
-    final client = Supabase.instance.client;
-    final userId = client.auth.currentUser?.id;
-    if (userId == null) {
-      setState(() {
-        _stock = [];
-        _isLoading = false;
-      });
-      return;
-    }
-
-    // Select inventory joined with products where product.seller_id == userId
-    final res = await client.from('inventory').select('*, products(*)').eq('products.seller_id', userId).order('updated_at', ascending: false);
-
-    final items = <Product>[];
-    if (res != null) {
-      for (var row in res as List) {
-        try {
-          items.add(Product.fromSupabase(Map<String, dynamic>.from(row)));
-        } catch (_) {}
-      }
-    }
-
-    setState(() {
-      _stock = items;
-      _isLoading = false;
-    });
-  }
+  final String? _userId = FirebaseAuth.instance.currentUser?.uid;
 
   void _updateQty(Product product, int change) async {
+    if (product.id == null) return;
     final newQty = (product.quantity + change).clamp(0, 999);
-    // Use inventoryService to set stock (upsert)
-    await inventoryService.setStock(product.id!, newQty, location: product.address, address: product.address);
-    await _loadStock();
+    await firebaseService.setStock(product.id!, newQty);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('My Stock Management'), backgroundColor: Colors.green),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                _buildStatusFilter(),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: _stock.length,
-                    itemBuilder: (context, index) {
-                      final item = _stock[index];
-                      final daysLeft = item.expiryDate.difference(DateTime.now()).inDays;
-                      final isExpiring = daysLeft <= 3;
+    if (_userId == null) {
+      return const Scaffold(body: Center(child: Text("Please login to manage stock")));
+    }
 
-                      return Card(
-                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: isExpiring ? Colors.red[100] : Colors.green[100],
-                            child: Icon(Icons.inventory, color: isExpiring ? Colors.red : Colors.green),
-                          ),
-                          title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Status: ${item.condition}'),
-                              Text(
-                                isExpiring
-                                    ? '⚠️ $daysLeft days until expiry!'
-                                    : 'Expires in $daysLeft days',
-                                style: TextStyle(
-                                  color: isExpiring ? Colors.red : Colors.black54,
-                                  fontWeight: isExpiring ? FontWeight.bold : FontWeight.normal,
-                                ),
-                              ),
-                            ],
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(icon: const Icon(Icons.remove_circle_outline), onPressed: () => _updateQty(item, -1)),
-                              Text('${item.quantity}'),
-                              IconButton(icon: const Icon(Icons.add_circle_outline), onPressed: () => _updateQty(item, 1)),
-                            ],
-                          ),
+    return Scaffold(
+      appBar: AppBar(title: const Text('My Stock Management'), backgroundColor: Colors.green, foregroundColor: Colors.white),
+      body: Column(
+        children: [
+          _buildStatusFilter(),
+          Expanded(
+            child: StreamBuilder<List<Product>>(
+              stream: firebaseService.getSellerProductsStream(_userId!),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final stock = snapshot.data ?? [];
+
+                if (stock.isEmpty) {
+                  return const Center(child: Text("No products in stock."));
+                }
+
+                return ListView.builder(
+                  itemCount: stock.length,
+                  itemBuilder: (context, index) {
+                    final item = stock[index];
+                    final daysLeft = item.expiryDate.difference(DateTime.now()).inDays;
+                    final isExpiring = daysLeft <= 3;
+
+                    return Card(
+                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: isExpiring ? Colors.red[100] : Colors.green[100],
+                          child: Icon(Icons.inventory, color: isExpiring ? Colors.red : Colors.green),
                         ),
-                      );
-                    },
-                  ),
-                ),
-              ],
+                        title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Status: ${item.condition}'),
+                            Text(
+                              isExpiring
+                                  ? '⚠️ $daysLeft days until expiry!'
+                                  : 'Expires in $daysLeft days',
+                              style: TextStyle(
+                                color: isExpiring ? Colors.red : Colors.black54,
+                                fontWeight: isExpiring ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                          ],
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(icon: const Icon(Icons.remove_circle_outline), onPressed: () => _updateQty(item, -1)),
+                            Text('${item.quantity}'),
+                            IconButton(icon: const Icon(Icons.add_circle_outline), onPressed: () => _updateQty(item, 1)),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
             ),
+          ),
+        ],
+      ),
     );
   }
 

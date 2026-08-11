@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../../models/product.dart';
-import '../../services/firestore_service.dart';
+import '../../services/firebase_service.dart';
 import '../../models/user.dart';
 
 class AddProductScreen extends StatefulWidget {
@@ -79,7 +79,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
         wastePreventedKg: (int.tryParse(_qtyController.text) ?? 1) * 0.5, // Estimativa
       );
 
-      await firestoreService.addProduct(product);
+      await firebaseService.addProduct(product);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

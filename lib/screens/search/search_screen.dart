@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/product.dart';
-import '../../services/firestore_service.dart';
+import '../../services/firebase_service.dart';
 import '../chat/chat_screen.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -46,7 +46,7 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
           Expanded(
             child: StreamBuilder<List<Product>>(
-              stream: firestoreService.getProductsStream(),
+              stream: firebaseService.getProductsStream(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../services/firestore_service.dart';
+import '../../services/firebase_service.dart';
 
 class ChatScreen extends StatefulWidget {
   final String receiverId;
@@ -27,7 +27,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (text.isEmpty || _currentUserId == null) return;
 
     try {
-      await firestoreService.sendMessage(_currentUserId!, widget.receiverId, text);
+      await firebaseService.sendMessage(_currentUserId!, widget.receiverId, text);
       _messageController.clear();
       // Scroll para o final
       _scrollController.animateTo(
@@ -60,7 +60,7 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           Expanded(
             child: StreamBuilder<List<Map<String, dynamic>>>(
-              stream: firestoreService.getChatStream(_currentUserId!, widget.receiverId),
+              stream: firebaseService.getChatStream(_currentUserId!, widget.receiverId),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());

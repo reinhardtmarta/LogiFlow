@@ -43,10 +43,11 @@ android {
 
     defaultConfig {
         applicationId "com.logiflow"
-        minSdk = flutter.minSdkVersion
+        minSdk = 23 // Recomendado para Firebase e APIs modernas
         targetSdk = flutter.targetSdkVersion
         versionCode = flutterVersionCode.toInteger()
         versionName = flutterVersionName
+        multiDexEnabled true
     }
 
     buildTypes {
