@@ -39,7 +39,7 @@ jobs:
           test -f "$main_activity"
           test -f "$manifest"
           grep -q 'import io.flutter.embedding.android.FlutterActivity' "$main_activity"
-          grep -q 'class MainActivity : FlutterActivity()' "$main_activity"
+          grep -Eq 'class[[:space:]]+MainActivity[[:space:]]*:[[:space:]]*FlutterActivity' "$main_activity"
 
           if grep -q 'flutterEmbedding.*1' "$manifest"; then
             echo '::error::Android v1 embedding encontrado no AndroidManifest.xml.'
