@@ -68,7 +68,18 @@ jobs:
           fi
 
           mkdir -p android/app
-          printf '%s' "$FIREBASE_GOOGLE_SERVICES_B64" | base64 --decode > android/app/google-services.json
+          firebase_config="$FIREBASE_GOOGLE_SERVICES_B64"
+          if printf '%s' "$firebase_config" | jq empty >/dev/null 2>&1; then
+            printf '%s' "$firebase_config" > android/app/google-services.json
+          else
+            firebase_config="${firebase_config#data:application/json;base64,}"
+            firebase_config="$(printf '%s' "$firebase_config" | tr -d '[:space:]')"
+            case $((${#firebase_config} % 4)) in
+              2) firebase_config="${firebase_config}==" ;;
+              3) firebase_config="${firebase_config}=" ;;
+            esac
+            printf '%s' "$firebase_config" | base64 --decode > android/app/google-services.json
+          fi
           test -s android/app/google-services.json
           jq empty android/app/google-services.json
           chmod 600 android/app/google-services.json
