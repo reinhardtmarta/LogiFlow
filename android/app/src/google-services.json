@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "890333090304",
+    "project_id": "aureacanvas",
+    "storage_bucket": "aureacanvas.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:890333090304:android:a7b345fbf5b541e2cb7ee5",
+        "android_client_info": {
+          "package_name": "com.example.logiflow"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBkFnTOpBda0fgcV0TsMdjPUKSXfa99iN8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:890333090304:android:42bb4d8e23cbce0bcb7ee5",
+        "android_client_info": {
+          "package_name": "com.logiflow"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBkFnTOpBda0fgcV0TsMdjPUKSXfa99iN8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
