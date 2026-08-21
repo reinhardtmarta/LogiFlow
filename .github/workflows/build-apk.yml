@@ -83,6 +83,9 @@ jobs:
       - name: Analyze Flutter source
         run: flutter analyze
 
+      - name: Remove stale generated plugin registrant
+        run: rm -f android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+
       - name: Build release APK
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
