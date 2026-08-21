@@ -22,6 +22,11 @@ if (flutterVersionName == null) {
     flutterVersionName = '1.0'
 }
 
+def flutterEngineVersion = new File(
+    localProperties.getProperty('flutter.sdk'),
+    'bin/cache/engine.stamp'
+).text.trim()
+
 android {
     namespace "com.logiflow"
     compileSdk = flutter.compileSdkVersion
@@ -42,7 +47,7 @@ android {
 
     defaultConfig {
         applicationId "com.logiflow"
-        minSdk = 23 // Recomendado para Firebase e APIs modernas
+        minSdkVersion = flutter.minSdkVersion // Recomendado para Firebase e APIs modernas
         targetSdk = flutter.targetSdkVersion
         versionCode = flutterVersionCode.toInteger()
         versionName = flutterVersionName
@@ -66,5 +71,8 @@ if (file('google-services.json').exists()) {
 }
 
 dependencies {
-    // Kotlin stdlib is now managed by the kotlin-android plugin
+    def flutterEmbedding = "1.0.0-${flutterEngineVersion}"
+    debugImplementation "io.flutter:flutter_embedding_debug:${flutterEmbedding}"
+    profileImplementation "io.flutter:flutter_embedding_profile:${flutterEmbedding}"
+    releaseImplementation "io.flutter:flutter_embedding_release:${flutterEmbedding}"
 }
