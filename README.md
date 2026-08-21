@@ -90,3 +90,27 @@ Or make the download in apk to Android in the realease version 1
 [⬇️ Download APK](https://github.com/reinhardtmarta/LogiFlow/releases/latest)
 
 > 🌿 Enjoy LogiFlow!
+
+## 🔥 Firebase e publicação web
+
+O arquivo `android/app/google-services.json` contém credenciais específicas do seu projeto e não deve ser versionado.
+
+1. No Firebase Console, crie ou selecione um projeto, adicione um app Android com o pacote `com.logiflow`, ative **Authentication > Email/Password** e crie o banco Firestore.
+2. Baixe `google-services.json` e coloque-o em `android/app/google-services.json`.
+3. Para o build no GitHub Actions, codifique o arquivo e cadastre o resultado como o segredo `FIREBASE_GOOGLE_SERVICES_B64`:
+
+```bash
+base64 -w 0 android/app/google-services.json
+```
+
+4. Cadastre também `GEMINI_API_KEY` em **Settings > Secrets and variables > Actions**. O workflow usa esses segredos apenas durante o build.
+
+Para publicar a versão web, instale e autentique o Firebase CLI, selecione o projeto e execute:
+
+```bash
+firebase login
+firebase use --add
+flutter create --platforms=web .
+flutter build web --release
+firebase deploy --only hosting
+```

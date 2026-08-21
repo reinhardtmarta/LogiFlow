@@ -8,9 +8,12 @@ import 'package:logiflow/screens/home/home_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Inicializa o Firebase. 
-  // Nota: No Android, ele lerá o arquivo google-services.json automaticamente.
-  await Firebase.initializeApp();
+  try {
+    await Firebase.initializeApp();
+  } catch (error, stackTrace) {
+    debugPrint('Firebase is not configured: $error');
+    debugPrintStack(stackTrace: stackTrace);
+  }
 
   runApp(const LogiFlowApp());
 }

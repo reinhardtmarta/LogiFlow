@@ -30,6 +30,16 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Restore Gradle wrapper scripts
+        run: |
+          set -euo pipefail
+          if [ ! -x android/gradlew ]; then
+            curl --fail --silent --show-error --location \
+              https://raw.githubusercontent.com/gradle/gradle/master/gradlew \
+              --output android/gradlew
+            chmod +x android/gradlew
+          fi
+
       - name: Verify Android embedding v2
         run: |
           set -euo pipefail
