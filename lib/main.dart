@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'package:logiflow/models/user.dart';
 import 'package:logiflow/screens/auth/login_screen.dart';
 import 'package:logiflow/screens/auth/register_screen.dart';
@@ -9,9 +10,11 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
-    await Firebase.initializeApp();
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
   } catch (error, stackTrace) {
-    debugPrint('Firebase is not configured: $error');
+    debugPrint('Firebase initialization error: $error');
     debugPrintStack(stackTrace: stackTrace);
   }
 
