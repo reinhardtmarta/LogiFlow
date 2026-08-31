@@ -8,6 +8,10 @@
     ],
     "rewrites": [
       {
+        "source": "/api/**", // Exemplo: se você tiver uma Cloud Function de API
+        "function": "apiFunction"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
