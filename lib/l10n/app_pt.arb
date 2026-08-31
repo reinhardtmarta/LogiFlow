@@ -1,0 +1,29 @@
+{
+  "@@locale": "pt",
+  "appTitle": "LogiFlow",
+  "loginButton": "Entrar",
+  "registerButton": "Criar Conta",
+  "emailLabel": "Endereço de E-mail",
+  "passwordLabel": "Senha",
+  "phoneLabel": "Telefone",
+  "addressLabel": "Endereço / Localização",
+  "isSeller": "Sou Vendedor / Produtor",
+  "errorEmptyFields": "Por favor, preencha todos os campos obrigatórios",
+  "errorPasswordShort": "A senha deve ter pelo menos 6 caracteres",
+  "errorAccountCreated": "Conta criada com sucesso! Faça o login.",
+  "errorGeneric": "Ocorreu um erro",
+  "searchHint": "Buscar pão, leite, frutas...",
+  "noItemsFound": "Nenhum item disponível no momento.",
+  "daysLeft": "{count} dias restantes",
+  "@daysLeft": {
+    "description": "Mensagem mostrando dias até o vencimento",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "rescueUrgent": "RESGATE URGENTE",
+  "healthy": "SAUDÁVEL",
+  "premium": "PREMIUM"
+}
