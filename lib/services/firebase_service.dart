@@ -9,25 +9,49 @@ class FirebaseService {
   firebase_auth.FirebaseAuth get auth => _auth;
   FirebaseFirestore get db => _db;
 
-  Future<firebase_auth.UserCredential> signUp(
-    String email,
-    String password,
-    String name,
-  ) async {
+  // --- AUTENTICAÇÃO CENTRALIZADA ---
+
+  /// O MÉTODO DEFINITIVO PARA REGISTRO.
+  /// Ele gerencia o Auth e o Firestore em uma única operação lógica.
+  /// Se o Firestore falhar, ele apaga o usuário do Auth (Rollback).
+  Future<firebase_auth.UserCredential> signUp({
+    required String email,
+    required String password,
+    required String name,
+    required String phone,
+    required String address,
+    required bool isSeller,
+  }) async {
+    // 1. Cria o usuário no Firebase Auth
     final credential = await _auth.createUserWithEmailAndPassword(
       email: email,
       password: password,
     );
 
-    if (credential.user != null) {
-      await saveUserData(credential.user!.uid, {
-        'email': email,
-        'name': name,
-        'created_at': FieldValue.serverTimestamp(),
-      });
-    }
+    final user = credential.user;
 
-    return credential;
+    if (user != null) {
+      try {
+        // 2. Salva os dados no Firestore
+        await saveUserData(user.uid, {
+          'uid': user.uid,
+          'email': email,
+          'name': name,
+          'phone': phone,
+          'address': address,
+          'is_seller': isSeller,
+          'created_at': FieldValue.serverTimestamp(),
+        });
+        return credential;
+      } catch (e) {
+        // 3. ROLLBACK: Se falhar o Firestore, deleta o usuário do Auth
+        // Isso evita o erro de "e-mail já em uso" em uma nova tentativa
+        await user.delete();
+        throw Exception("Erro ao salvar perfil no banco de dados. Tente novamente.");
+      }
+    } else {
+      throw Exception("Falha ao criar conta.");
+    }
   }
 
   Future<firebase_auth.UserCredential> signIn(
@@ -39,6 +63,8 @@ class FirebaseService {
 
   Future<void> signOut() => _auth.signOut();
 
+  // --- GESTÃO DE PERFIL ---
+
   Future<void> saveUserData(String uid, Map<String, dynamic> data) {
     return _db.collection('profiles').doc(uid).set(
           data,
@@ -47,14 +73,20 @@ class FirebaseService {
   }
 
   Future<Map<String, dynamic>?> getUserProfile(String uid) async {
-    final doc = await _db.collection('profiles').doc(uid).get();
-    return doc.data();
+    try {
+      final doc = await _db.collection('profiles').doc(uid).get();
+      return doc.exists ? doc.data() : null;
+    } catch (e) {
+      return null;
+    }
   }
+
+  // --- GESTÃO DE PRODUTOS (COM TRATAMENTO DE ERRO NO STREAM) ---
 
   Stream<List<Product>> getProductsStream() {
     return _db
         .collection('products')
-        .orderBy('expiry_date')
+        .orderBy('expiry_date') // Itens próximos do vencimento primeiro
         .snapshots()
         .map(
           (snapshot) => snapshot.docs
@@ -101,6 +133,8 @@ class FirebaseService {
     return _db.collection('products').doc(productId).delete();
   }
 
+  // --- FEED SOCIAL ---
+
   Stream<List<Map<String, dynamic>>> getFeedStream() {
     return _db
         .collection('feed_posts')
@@ -120,6 +154,8 @@ class FirebaseService {
     });
   }
 
+  // --- CHAT EM TEMPO REAL (OTIMIZADO COM BATCH) ---
+
   String _chatRoomId(String userA, String userB) {
     final participants = [userA, userB]..sort();
     return participants.join('_');
@@ -130,7 +166,7 @@ class FirebaseService {
         .collection('chats')
         .doc(_chatRoomId(userA, userB))
         .collection('messages')
-        .orderBy('created_at')
+        .orderBy('created_at', descending: false) // Mensagens novas embaixo
         .snapshots()
         .map(
           (snapshot) => snapshot.docs
@@ -146,18 +182,24 @@ class FirebaseService {
   ) async {
     final chatRoomId = _chatRoomId(senderId, receiverId);
     final participants = [senderId, receiverId]..sort();
+    
     final batch = _db.batch();
-    final chat = _db.collection('chats').doc(chatRoomId);
-    final newMessage = chat.collection('messages').doc();
+    
+    // Documento da nova mensagem
+    final newMessageRef = _db.collection('chats').doc(chatRoomId).collection('messages').doc();
+    
+    // Documento da sala de chat (para listar conversas recentes)
+    final chatRoomRef = _db.collection('chats').doc(chatRoomId);
 
-    batch.set(newMessage, {
+    batch.set(newMessageRef, {
       'sender_id': senderId,
       'receiver_id': receiverId,
       'message': message,
       'created_at': FieldValue.serverTimestamp(),
     });
+
     batch.set(
-      chat,
+      chatRoomRef,
       {
         'last_message': message,
         'last_update': FieldValue.serverTimestamp(),
@@ -165,6 +207,7 @@ class FirebaseService {
       },
       SetOptions(merge: true),
     );
+
     await batch.commit();
   }
 }
