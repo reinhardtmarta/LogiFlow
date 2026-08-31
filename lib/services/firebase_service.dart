@@ -1,20 +1,20 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+import 'package:firebase_auth/firebase_auth.dart' as auth;
 import '../models/product.dart';
 
 class FirebaseService {
-  final firebase_auth.FirebaseAuth _auth = firebase_auth.FirebaseAuth.instance;
+  final auth.FirebaseAuth _auth = auth.FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  firebase_auth.FirebaseAuth get auth => _auth;
+  // Getters para acesso rápido
+  auth.FirebaseAuth get auth => _auth;
   FirebaseFirestore get db => _db;
 
-  // --- AUTENTICAÇÃO CENTRALIZADA ---
+  // --- 1. AUTENTICAÇÃO E GESTÃO DE PERFIL ---
 
-  /// O MÉTODO DEFINITIVO PARA REGISTRO.
-  /// Ele gerencia o Auth e o Firestore em uma única operação lógica.
-  /// Se o Firestore falhar, ele apaga o usuário do Auth (Rollback).
-  Future<firebase_auth.UserCredential> signUp({
+  /// Realiza o cadastro completo: cria o usuário no Auth e o perfil no Firestore.
+  /// Implementa o conceito de "Rollback": se o Firestore falhar, o usuário é deletado do Auth.
+  Future<auth.UserCredential> signUp({
     required String email,
     required String password,
     required String name,
@@ -22,7 +22,7 @@ class FirebaseService {
     required String address,
     required bool isSeller,
   }) async {
-    // 1. Cria o usuário no Firebase Auth
+    // 1. Cria no Firebase Auth
     final credential = await _auth.createUserWithEmailAndPassword(
       email: email,
       password: password,
@@ -32,7 +32,7 @@ class FirebaseService {
 
     if (user != null) {
       try {
-        // 2. Salva os dados no Firestore
+        // 2. Cria o documento de perfil no Firestore
         await saveUserData(user.uid, {
           'uid': user.uid,
           'email': email,
@@ -40,91 +40,83 @@ class FirebaseService {
           'phone': phone,
           'address': address,
           'is_seller': isSeller,
+          'plan': 'free', // Todo novo usuário começa no plano gratuito
+          'product_count': 0, // Contador para controle de limite
           'created_at': FieldValue.serverTimestamp(),
         });
         return credential;
       } catch (e) {
-        // 3. ROLLBACK: Se falhar o Firestore, deleta o usuário do Auth
-        // Isso evita o erro de "e-mail já em uso" em uma nova tentativa
+        // Se falhar o Firestore, deleta o usuário do Auth para não gerar "usuário fantasma"
         await user.delete();
-        throw Exception("Erro ao salvar perfil no banco de dados. Tente novamente.");
+        throw Exception("Erro ao criar perfil. Tente novamente.");
       }
     } else {
       throw Exception("Falha ao criar conta.");
     }
   }
 
-  Future<firebase_auth.UserCredential> signIn(
-    String email,
-    String password,
-  ) {
-    return _auth.signInWithEmailAndPassword(email: email, password: password);
+  Future<auth.UserCredential> signIn(String email, String password) async {
+    return await _auth.signInWithEmailAndPassword(email: email, password: password);
   }
 
   Future<void> signOut() => _auth.signOut();
 
-  // --- GESTÃO DE PERFIL ---
+  Future<Map<String, dynamic>?> getUserProfile(String uid) async {
+    final doc = await _db.collection('profiles').doc(uid).get();
+    return doc.exists ? doc.data() : null;
+  }
 
   Future<void> saveUserData(String uid, Map<String, dynamic> data) {
-    return _db.collection('profiles').doc(uid).set(
-          data,
-          SetOptions(merge: true),
-        );
+    return _db.collection('profiles').doc(uid).set(data, SetOptions(merge: true));
   }
 
-  Future<Map<String, dynamic>?> getUserProfile(String uid) async {
-    try {
-      final doc = await _db.collection('profiles').doc(uid).get();
-      return doc.exists ? doc.data() : null;
-    } catch (e) {
-      return null;
-    }
+  // --- 2. GESTÃO DE PRODUTOS (COM LÓGICA DE MONETIZAÇÃO) ---
+
+  /// Adiciona um produto e incrementa o contador de uso do usuário de forma ATÔMICA.
+  /// Se o limite de 10 produtos for atingido, o Firebase (via Security Rules) bloqueará o comando.
+  Future<void> addProduct(Product product, String userId) async {
+    final batch = _db.batch();
+
+    // 1. Referência do novo produto
+    final productRef = _db.collection('products').doc();
+    batch.set(productRef, product.toFirestore());
+
+    // 2. Incrementa o contador de produtos no perfil do usuário
+    final profileRef = _db.collection('profiles').doc(userId);
+    batch.update(profileRef, {
+      'product_count': FieldValue.increment(1),
+    });
+
+    // Executa a operação. Se o usuário exceder o limite, o Firestore rejeita o lote inteiro.
+    await batch.commit();
   }
 
-  // --- GESTÃO DE PRODUTOS (COM TRATAMENTO DE ERRO NO STREAM) ---
-
+  /// Retorna o stream de produtos para o Feed, priorizando os itens PREMIUM (is_featured).
   Stream<List<Product>> getProductsStream() {
     return _db
         .collection('products')
-        .orderBy('expiry_date') // Itens próximos do vencimento primeiro
+        .orderBy('is_featured', descending: true) // PREMIUMS EM CIMA
+        .orderBy('expiry_date', descending: false) // Depois, por data de validade
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map(
-                (doc) => Product.fromFirestore(
-                  doc.id,
-                  Map<String, dynamic>.from(doc.data()),
-                ),
-              )
-              .toList(),
-        );
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Product.fromFirestore(doc.id, doc.data()))
+            .toList());
   }
 
+  /// Retorna apenas os produtos de um vendedor específico.
   Stream<List<Product>> getSellerProductsStream(String userId) {
     return _db
         .collection('products')
         .where('seller_id', isEqualTo: userId)
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map(
-                (doc) => Product.fromFirestore(
-                  doc.id,
-                  Map<String, dynamic>.from(doc.data()),
-                ),
-              )
-              .toList()
-            ..sort((a, b) => a.expiryDate.compareTo(b.expiryDate)),
-        );
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Product.fromFirestore(doc.id, doc.data()))
+            .toList());
   }
 
-  Future<void> addProduct(Product product) {
-    return _db.collection('products').add(product.toFirestore());
-  }
-
-  Future<void> setStock(String productId, int quantity) {
+  Future<void> updateProductStock(String productId, int newQuantity) {
     return _db.collection('products').doc(productId).update({
-      'quantity': quantity,
+      'quantity': newQuantity,
       'updated_at': FieldValue.serverTimestamp(),
     });
   }
@@ -133,64 +125,36 @@ class FirebaseService {
     return _db.collection('products').doc(productId).delete();
   }
 
-  // --- FEED SOCIAL ---
+  // --- 3. CHAT EM TEMPO REAL (SISTEMA DE SALAS) ---
 
-  Stream<List<Map<String, dynamic>>> getFeedStream() {
-    return _db
-        .collection('feed_posts')
-        .orderBy('created_at', descending: true)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => <String, dynamic>{...doc.data(), 'id': doc.id})
-              .toList(),
-        );
-  }
-
-  Future<void> createPost(Map<String, dynamic> data) {
-    return _db.collection('feed_posts').add({
-      ...data,
-      'created_at': FieldValue.serverTimestamp(),
-    });
-  }
-
-  // --- CHAT EM TEMPO REAL (OTIMIZADO COM BATCH) ---
-
-  String _chatRoomId(String userA, String userB) {
+  /// Gera um ID único para a sala de chat baseado nos dois IDs dos participantes.
+  String _getChatRoomId(String userA, String userB) {
     final participants = [userA, userB]..sort();
     return participants.join('_');
   }
 
-  Stream<List<Map<String, dynamic>>> getChatStream(String userA, String userB) {
+  /// Retorna o Stream de mensagens de uma conversa específica.
+  Stream<List<Map<String, dynamic>>> getChatMessages(String userA, String userB) {
     return _db
         .collection('chats')
-        .doc(_chatRoomId(userA, userB))
+        .doc(_getChatRoomId(userA, userB))
         .collection('messages')
-        .orderBy('created_at', descending: false) // Mensagens novas embaixo
+        .orderBy('created_at', descending: false)
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => Map<String, dynamic>.from(doc.data()))
-              .toList(),
-        );
+        .map((snapshot) => snapshot.docs
+            .map((doc) => doc.data().map<String, dynamic>((key, value) => MapEntry(key, value)))
+            .toList());
   }
 
-  Future<void> sendMessage(
-    String senderId,
-    String receiverId,
-    String message,
-  ) async {
-    final chatRoomId = _chatRoomId(senderId, receiverId);
+  /// Envia uma mensagem e atualiza o cabeçalho da conversa (para a lista de chats).
+  Future<void> sendMessage(String senderId, String receiverId, String message) async {
+    final chatRoomId = _getChatRoomId(senderId, receiverId);
     final participants = [senderId, receiverId]..sort();
     
     final batch = _db.batch();
-    
-    // Documento da nova mensagem
-    final newMessageRef = _db.collection('chats').doc(chatRoomId).collection('messages').doc();
-    
-    // Documento da sala de chat (para listar conversas recentes)
-    final chatRoomRef = _db.collection('chats').doc(chatRoomId);
 
+    // 1. Cria a mensagem na subcoleção
+    final newMessageRef = _db.collection('chats').doc(chatRoomId).collection('messages').doc();
     batch.set(newMessageRef, {
       'sender_id': senderId,
       'receiver_id': receiverId,
@@ -198,18 +162,17 @@ class FirebaseService {
       'created_at': FieldValue.serverTimestamp(),
     });
 
-    batch.set(
-      chatRoomRef,
-      {
-        'last_message': message,
-        'last_update': FieldValue.serverTimestamp(),
-        'participants': participants,
-      },
-      SetOptions(merge: true),
-    );
+    // 2. Atualiza o documento da sala (para exibir a "última mensagem" na lista de conversas)
+    final chatRoomRef = _db.collection('chats').doc(chatRoomId);
+    batch.set(chatRoomRef, {
+      'last_message': message,
+      'last_update': FieldValue.serverTimestamp(),
+      'participants': participants,
+    }, SetOptions(merge: true));
 
     await batch.commit();
   }
 }
 
+// Instância global única (Singleton)
 final firebaseService = FirebaseService();
