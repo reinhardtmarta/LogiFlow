@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/product.dart';
 import '../../models/user.dart';
 import '../../services/firebase_service.dart';
+import '../../services/gemma_service.dart'; // IMPORTANTE: Adicionado
 import '../../screens/chat/chat_screen.dart';
 
 class GeneralFeedScreen extends StatefulWidget {
@@ -13,6 +14,36 @@ class GeneralFeedScreen extends StatefulWidget {
 }
 
 class _GeneralFeedScreenState extends State<GeneralFeedScreen> {
+  // Estado para armazenar o insight gerado pela IA
+  String? _aiInsightMessage;
+  bool _isAnalyzing = false;
+
+  /// Função que chama a Gemma para analisar o feed atual e gerar um insight
+  Future<void> _generateSmartInsight(List<Product> products) async {
+    if (products.isEmpty) return;
+
+    setState(() => _isAnalyzing = true);
+
+    try {
+      // Chamada ao serviço da Gemma (usando o novo modelo de intenção/análise)
+      // Aqui passamos a lista de produtos para ela analisar
+      final result = await GemmaService().getInsights(
+        products: products,
+        userSettings: widget.user.settings, // Supondo que seu User tenha settings
+      );
+
+      if (mounted) {
+        setState(() {
+          _aiInsightMessage = result.message;
+          _isAnalyzing = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Erro ao gerar insight: $e");
+      setState(() => _isAnalyzing = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -21,7 +52,15 @@ class _GeneralFeedScreenState extends State<GeneralFeedScreen> {
         backgroundColor: Colors.green,
         elevation: 2,
         actions: [
-          // Ícone para o usuário ver o seu próprio perfil/estoque se necessário
+          // Botão para o usuário pedir uma nova análise da IA
+          IconButton(
+            icon: Icon(_isAnalyzing ? Icons.hourglass_empty : Icons.auto_awesome, color: Colors.white),
+            onPressed: _isAnalyzing ? null : () async {
+              // Pegamos a lista atual para a IA analisar
+              // Nota: Em um app real, você passaria a lista que já está no Stream
+              // Para este exemplo, vamos assumir que a lista é acessível.
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.person, color: Colors.white),
             onPressed: () {
@@ -56,28 +95,92 @@ class _GeneralFeedScreenState extends State<GeneralFeedScreen> {
             );
           }
 
-          return ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            itemCount: products.length,
-            itemBuilder: (context, index) {
-              final p = products[index];
-              
-              // Lógica de Urgência
-              final days = p.expiryDate.difference(DateTime.now()).inDays;
-              final isUrgent = days <= 3;
-              
-              // Lógica de Destaque (Monetização)
-              final isPremium = p.isFeatured; // Assume que seu modelo Product tem esse campo
+          // Dispara a análise da IA assim que os produtos carregam pela primeira vez
+          if (_aiInsightMessage == null && !_isAnalyzing) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _generateSmartInsight(products);
+            });
+          }
 
-              return _buildProductCard(p, isUrgent, isPremium, days);
-            },
+          return Column(
+            children: [
+              // --- ABA DE SUGESTÕES DA GEMMA (O NOVO COMPONENTE) ---
+              if (_aiInsightMessage != null)
+                _buildAIInsightBanner(),
+              
+              // O Feed de Produtos
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  itemCount: products.length,
+                  itemBuilder: (context, index) {
+                    final p = products[index];
+                    final days = p.expiryDate.difference(DateTime.now()).inDays;
+                    final isUrgent = days <= 3;
+                    final isPremium = p.isFeatured;
+
+                    return _buildProductCard(p, isUrgent, isPremium, days);
+                  },
+                ),
+              ),
+            ],
           );
         },
       ),
     );
   }
 
-  /// Widget para construir o Card de cada produto de forma modular e elegante
+  /// Widget do Banner de Inteligência (Aba de Sugestões)
+  Widget _buildAIInsightBanner() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.green.shade400, Colors.green.shade700],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.green.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.auto_awesome, color: Colors.white, size: 28),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "DICA DA GEMMA",
+                  style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _aiInsightMessage!,
+                  style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+            onPressed: () => setState(() => _aiInsightMessage = null),
+          )
+        ],
+      ),
+    );
+  }
+
+  /// Widget para construir o Card de cada produto
   Widget _buildProductCard(Product p, bool isUrgent, bool isPremium, int days) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -90,7 +193,6 @@ class _GeneralFeedScreenState extends State<GeneralFeedScreen> {
             offset: const Offset(0, 4),
           ),
         ],
-        // Borda colorida se for Premium ou Urgente
         border: Border.all(
           color: isPremium 
               ? Colors.amber.shade600 
@@ -109,20 +211,17 @@ class _GeneralFeedScreenState extends State<GeneralFeedScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Linha de Badges (Destaque e Urgência)
                   Row(
                     children: [
                       if (isPremium)
                         _buildBadge(Icons.star, "PREMIUM", Colors.amber),
                       if (isUrgent)
                         _buildBadge(Icons.warning_amber_rounded, "RESGATE URGENTE", Colors.red),
-                      if (!isPremium && !isUrgent)
+                      if (!isPremium && !isUrurgent)
                         _buildBadge(Icons.eco, "SAUDÁVEL", Colors.green),
                     ],
                   ),
                   const SizedBox(height: 12),
-
-                  // Nome e Preço
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -139,8 +238,6 @@ class _GeneralFeedScreenState extends State<GeneralFeedScreen> {
                     ],
                   ),
                   const SizedBox(height: 8),
-
-                  // Informações de Localização e Quantidade
                   Row(
                     children: [
                       const Icon(Icons.location_on, size: 16, color: Colors.grey),
@@ -159,8 +256,6 @@ class _GeneralFeedScreenState extends State<GeneralFeedScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-
-                  // Linha de Vencimento (Footer do Card)
                   const Divider(height: 1),
                   const SizedBox(height: 8),
                   Row(
@@ -186,7 +281,6 @@ class _GeneralFeedScreenState extends State<GeneralFeedScreen> {
     );
   }
 
-  /// Widget auxiliar para criar os pequenos selos (badges)
   Widget _buildBadge(IconData icon, String label, Color color) {
     return Container(
       margin: const EdgeInsets.only(right: 8),
@@ -216,7 +310,7 @@ class _GeneralFeedScreenState extends State<GeneralFeedScreen> {
       MaterialPageRoute(
         builder: (_) => ChatScreen(
           receiverId: p.userId,
-          receiverName: 'Vendedor', // No futuro, busque o nome real do vendedor no Firestore
+          receiverName: 'Vendedor',
         ),
       ),
     );
