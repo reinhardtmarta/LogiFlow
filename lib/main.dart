@@ -3,7 +3,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart' as auth;
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/intl.dart';
-import 'firebase_options.dart';
 import 'package:logiflow/models/user.dart';
 import 'package:logiflow/services/firebase_service.dart';
 import 'package:logiflow/screens/auth/login_screen.dart';
@@ -13,13 +12,15 @@ import 'package:logiflow/screens/home/home_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-  } catch (error, stackTrace) {
-    debugPrint('Firebase initialization error: $error');
-    debugPrintStack(stackTrace: stackTrace);
+  final isFlutterTest = const bool.fromEnvironment('flutter.test', defaultValue: false);
+
+  if (!isFlutterTest) {
+    try {
+      await Firebase.initializeApp();
+    } catch (error, stackTrace) {
+      debugPrint('Firebase initialization error: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 
   ErrorWidget.builder = (FlutterErrorDetails details) {

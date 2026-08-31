@@ -36,7 +36,7 @@ class _SellerDashboardState extends State<SellerDashboard> {
       final response = await _gemmaService.processQuery(prompt);
       if (mounted) {
         setState(() {
-          _gemmaInsight = response.message;
+          _gemmaInsight = response;
         });
       }
     } catch (e) {

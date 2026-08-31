@@ -106,26 +106,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
             _buildTextField(_nameController, "Full Name *", Icons.person),
             const SizedBox(height: 16),
-            _buildTextField(_emailController, "Email Address *", Icons.email, TextInputType.emailAddress),
+            _buildTextField(_emailController, "Email Address *", Icons.email, type: TextInputType.emailAddress),
             const SizedBox(height: 16),
-            _buildTextField(_passwordController, "Create Password *", Icons.lock, TextInputType.visiblePassword, isObscure: true),
+            _buildTextField(_passwordController, "Create Password *", Icons.lock, type: TextInputType.visiblePassword, isObscure: true),
             const SizedBox(height: 16),
             _buildTextField(_phoneController, "Phone Number", Icons.phone),
             const SizedBox(height: 16),
-            _buildTextField(_addressController, "Address / Location", Icons.location_on, TextInputType.multiline, maxLines: 2),
+            _buildTextField(_addressController, "Address / Location", Icons.location_on, type: TextInputType.multiline, maxLines: 2),
             const SizedBox(height: 20),
 
             // Switch para Seller/Producer
             Container(
               decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.1),
+                color: Colors.green.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: SwitchListTile(
                 title: const Text("I am a Seller / Producer", style: TextStyle(fontWeight: FontWeight.bold)),
                 subtitle: const Text("I want to sell or donate products"),
                 value: _isSeller,
-                activeColor: Colors.green,
+                activeThumbColor: Colors.green,
                 onChanged: (value) => setState(() => _isSeller = value),
               ),
             ),
@@ -167,12 +167,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   // Widget auxiliar para construção de campos padronizada
   Widget _buildTextField(
-    TextEditingController controller, 
-    String label, 
-    IconData icon, 
-    TextInputType type, 
-    {bool isObscure = false, int maxLines = 1}
-  ) {
+    TextEditingController controller,
+    String label,
+    IconData icon, {
+    TextInputType type = TextInputType.text,
+    bool isObscure = false,
+    int maxLines = 1,
+  }) {
     return TextField(
       controller: controller,
       obscureText: isObscure,

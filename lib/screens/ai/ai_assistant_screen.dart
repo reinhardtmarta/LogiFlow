@@ -32,7 +32,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
       if (mounted) {
         setState(() {
-          _messages.add({"role": "gemma", "text": result.message});
+          _messages.add({"role": "gemma", "text": result});
           _isThinking = false;
         });
       }

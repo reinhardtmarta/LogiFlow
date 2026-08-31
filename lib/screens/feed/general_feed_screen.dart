@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/product.dart';
 import '../../models/user.dart';
 import '../../services/firebase_service.dart';
-import '../../services/gemma_service.dart'; // IMPORTANTE: Adicionado
+import '../../core/gemma_service.dart';
 import '../../screens/chat/chat_screen.dart';
 
 class GeneralFeedScreen extends StatefulWidget {
@@ -34,7 +34,7 @@ class _GeneralFeedScreenState extends State<GeneralFeedScreen> {
 
       if (mounted) {
         setState(() {
-          _aiInsightMessage = result.message;
+          _aiInsightMessage = result;
           _isAnalyzing = false;
         });
       }
@@ -145,7 +145,7 @@ class _GeneralFeedScreenState extends State<GeneralFeedScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.green.withOpacity(0.3),
+            color: Colors.green.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -188,7 +188,7 @@ class _GeneralFeedScreenState extends State<GeneralFeedScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: isPremium ? Colors.green.withOpacity(0.2) : Colors.black.withOpacity(0.05),
+            color: isPremium ? Colors.green.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -217,7 +217,7 @@ class _GeneralFeedScreenState extends State<GeneralFeedScreen> {
                         _buildBadge(Icons.star, "PREMIUM", Colors.amber),
                       if (isUrgent)
                         _buildBadge(Icons.warning_amber_rounded, "RESGATE URGENTE", Colors.red),
-                      if (!isPremium && !isUrurgent)
+                      if (!isPremium && !isUrgent)
                         _buildBadge(Icons.eco, "SAUDÁVEL", Colors.green),
                     ],
                   ),
@@ -286,9 +286,9 @@ class _GeneralFeedScreenState extends State<GeneralFeedScreen> {
       margin: const EdgeInsets.only(right: 8),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.5), width: 1),
+        border: Border.all(color: color.withValues(alpha: 0.5), width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

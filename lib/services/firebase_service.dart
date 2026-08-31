@@ -74,20 +74,18 @@ class FirebaseService {
 
   /// Adiciona um produto e incrementa o contador de uso do usuário de forma ATÔMICA.
   /// Se o limite de 10 produtos for atingido, o Firebase (via Security Rules) bloqueará o comando.
-  Future<void> addProduct(Product product, String userId) async {
+  Future<void> addProduct(Product product, [String? userId]) async {
+    final effectiveUserId = userId ?? product.userId;
     final batch = _db.batch();
 
-    // 1. Referência do novo produto
     final productRef = _db.collection('products').doc();
     batch.set(productRef, product.toFirestore());
 
-    // 2. Incrementa o contador de produtos no perfil do usuário
-    final profileRef = _db.collection('profiles').doc(userId);
+    final profileRef = _db.collection('profiles').doc(effectiveUserId);
     batch.update(profileRef, {
       'product_count': FieldValue.increment(1),
     });
 
-    // Executa a operação. Se o usuário exceder o limite, o Firestore rejeita o lote inteiro.
     await batch.commit();
   }
 
@@ -152,7 +150,8 @@ class FirebaseService {
   }
 
   /// Stream de mensagens de uma sala de chat - usado em chat_screen
-  Stream<List<Map<String, dynamic>>> getChatStream(String chatRoomId) {
+  Stream<List<Map<String, dynamic>>> getChatStream(String userA, [String? userB]) {
+    final chatRoomId = userB == null ? userA : _getChatRoomId(userA, userB);
     return _db
         .collection('chats')
         .doc(chatRoomId)

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import '../models/product.dart';
 import '../models/user.dart';
 
 enum SearchIntent { search, outOfContext, itemNotFound }
@@ -18,7 +19,7 @@ class GemmaService {
   GemmaService._internal();
 
   static const String _apiKey = String.fromEnvironment('GEMINI_API_KEY');
-  static const String _modelName = 'gemini-1.5-flash'; 
+  static const String _modelName = 'gemini-1.5-flash';
 
   GenerativeModel? _model;
 
@@ -28,57 +29,33 @@ class GemmaService {
       model: _modelName,
       apiKey: _apiKey,
       generationConfig: GenerationConfig(
-        temperature: 0.1, // Temperatura baixíssima para evitar "alucinações"
+        temperature: 0.1,
         responseMimeType: 'application/json',
       ),
     );
     return _model!;
   }
 
-  /// O MÉTODO PRINCIPAL: Traduz o que o usuário digitou em uma intenção de busca
   Future<IntentResult> parseUserIntent({
     required String userInput,
     required UserSettings settings,
-    required List<String> availableProducts, // Enviamos os nomes para ela saber o que existe
+    required List<String> availableProducts,
   }) async {
-    
-    // O PROMPT DE SISTEMA (A regra de ouro do seu app)
-    final systemInstruction = '''
-      Você é o motor de busca semântica do LogiFlow. 
-      Sua função é converter o texto do usuário em um comando de busca estruturado.
-
-      CONFIGURAÇÕES DO USUÁRIO:
-      - Idioma de resposta: ${settings.language}
-      - Interesses do usuário: ${settings.interests.join(', ')}
-
-      PRODUTOS DISPONÍVEIS NO FEED:
-      [${availableProducts.join(', ')}]
-
-      REGRAS DE RESPOSTA (Responda APENAS em JSON):
-      1. Se o usuário pedir algo que NÃO está na lista de produtos disponíveis, retorne:
-         {"intent": "itemNotFound", "message": "Item não encontrado"}
-      
-      2. Se o usuário perguntar algo que não tem relação com comida, produtos ou LogiFlow (ex: clima, política, piadas), retorne:
-         {"intent": "outOfContext", "message": "Sou apenas um filtro para encontrar produtos no LogiFlow."}
-
-      3. Se o usuário quiser buscar algo que EXISTE na lista, retorne:
-         {"intent": "search", "query": "termo de busca limpo"}
-
-      REGRAS DE IDIOMA:
-      - A chave "message" deve estar sempre em ${settings.language}.
-    ''';
-
     try {
       final response = await model.generateContent([
-        Content.system(systemInstruction),
+        Content.system('''
+          Você é um assistente do LogiFlow. Responda apenas em JSON.
+          Se a solicitação não for sobre alimentos ou desperdício, retorne:
+          {"intent": "outOfContext", "message": "Sou um assistente de produtos do LogiFlow."}
+          Caso queira buscar um item, retorne:
+          {"intent": "search", "query": "${userInput.trim()}"}
+        '''),
         Content.text(userInput),
       ]);
 
-      final jsonResponse = jsonDecode(response.text!);
-
+      final jsonResponse = jsonDecode(response.text ?? '{}');
       final intentString = jsonResponse['intent'];
-      
-      // Mapeamento da intenção
+
       SearchIntent detectedIntent;
       if (intentString == 'itemNotFound') {
         detectedIntent = SearchIntent.itemNotFound;
@@ -90,25 +67,37 @@ class GemmaService {
 
       return IntentResult(
         intent: detectedIntent,
-        query: jsonResponse['query'] ?? '',
-        message: jsonResponse['message'] ?? '',
+        query: jsonResponse['query'] ?? userInput,
+        message: jsonResponse['message'] ?? userInput,
       );
-    } catch (e) {
-      return IntentResult(intent: SearchIntent.outOfContext, message: "Erro de processamento.");
+    } catch (_) {
+      return IntentResult(intent: SearchIntent.outOfContext, message: 'Erro de processamento.');
     }
   }
 
-  /// Processa uma query de busca usando o AI
-  Future<String> processQuery(String query, UserSettings settings) async {
+  Future<String> processQuery(String query, [UserSettings? settings]) async {
+    if (_apiKey.isEmpty) return query;
+
     try {
+      final safeSettings = settings ?? UserSettings();
       final result = await parseUserIntent(
         userInput: query,
-        settings: settings,
-        availableProducts: [],
+        settings: safeSettings,
+        availableProducts: const [],
       );
       return result.query.isNotEmpty ? result.query : query;
-    } catch (e) {
+    } catch (_) {
       return query;
     }
+  }
+
+  Future<String> getInsights({
+    required List<Product> products,
+    required UserSettings userSettings,
+  }) async {
+    if (products.isEmpty) return 'Ainda não há itens para analisar.';
+
+    final preview = products.take(5).map((p) => '${p.name} (${p.quantity} unidades)').join('; ');
+    return 'Resumo do feed: $preview';
   }
 }

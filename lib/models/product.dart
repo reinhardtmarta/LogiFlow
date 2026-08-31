@@ -11,6 +11,7 @@ class Product {
   final String? imagePath;
   final String category;
   final bool isRescue;
+  final bool isFeatured;
   final double wastePreventedKg;
 
   Product({
@@ -26,6 +27,7 @@ class Product {
     this.imagePath,
     required this.category,
     this.isRescue = false,
+    this.isFeatured = false,
     this.wastePreventedKg = 0.0,
   });
 
@@ -53,6 +55,7 @@ class Product {
       imagePath: (data['image_path'] ?? data['imagePath'])?.toString(),
       category: (data['category'] ?? 'Other').toString(),
       isRescue: _toBool(data['is_rescue'] ?? data['isRescue']),
+      isFeatured: _toBool(data['is_featured'] ?? data['isFeatured']),
       wastePreventedKg: _toDouble(
         data['waste_prevented_kg'] ?? data['wastePreventedKg'],
       ),
@@ -88,6 +91,7 @@ class Product {
       'image_path': imagePath,
       'category': category,
       'is_rescue': isRescue,
+      'is_featured': isFeatured,
       'waste_prevented_kg': wastePreventedKg,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     };

@@ -46,9 +46,9 @@ class User {
     required this.password,
     required this.phone,
     required this.address,
-    required this.isSeller,
-    required this.settings, // Obrigatório para garantir que o app sempre saiba o idioma
-  });
+    this.isSeller = false,
+    UserSettings? settings,
+  }) : settings = settings ?? UserSettings();
 
   /// Converte um documento do Firestore para o objeto User.
   /// Essencial para o login e para o AuthWrapper carregar o perfil.

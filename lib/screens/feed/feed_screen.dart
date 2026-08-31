@@ -25,13 +25,7 @@ class _FeedScreenState extends State<FeedScreen> {
     final response = await _gemmaService.processQuery(text);
 
     setState(() {
-      _feedItems.add(_buildChatBubble(response.message, isUser: false));
-
-      if (response.command == BotCommand.showProduct &&
-          response.payload != null) {
-        // Here we could fetch the product from a service if needed
-        // For now, just show the message
-      }
+      _feedItems.add(_buildChatBubble(response, isUser: false));
     });
   }
 
