@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart' as auth; // Adicionado para monitorar login
+import 'package:firebase_auth/firebase_auth.dart' as auth;
+import 'package:flutter_localizations/flutter_localizations.dart'; // IMPORTANTE
+import 'package:flutter_gen/gen_l10n/app_localizations.dart'; // IMPORTANTE: Gerado pelo flutter gen-l10n
 import 'firebase_options.dart';
 import 'package:logiflow/models/user.dart';
+import 'package:logiflow/services/firebase_service.dart'; // Para buscar dados do Firestore
 import 'package:logiflow/screens/auth/login_screen.dart';
 import 'package:logiflow/screens/auth/register_screen.dart';
 import 'package:logiflow/screens/home/home_screen.dart';
 
 Future<void> main() async {
-  // Garante que os bindings do Flutter estejam prontos antes do Firebase
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
@@ -20,7 +22,6 @@ Future<void> main() async {
     debugPrintStack(stackTrace: stackTrace);
   }
 
-  // Tratamento de erro visual para evitar a "Tela Vermelha" em produção
   ErrorWidget.builder = (FlutterErrorDetails details) {
     return Material(
       child: Container(
@@ -29,7 +30,7 @@ Future<void> main() async {
           child: Text(
             'Ops! Algo deu errado.\nPor favor, tente novamente.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.red, fontSize: 16),
+            style: const TextStyle(color: Colors.red, fontSize: 16),
           ),
         ),
       ),
@@ -47,6 +48,20 @@ class LogiFlowApp extends StatelessWidget {
     return MaterialApp(
       title: 'LogiFlow',
       debugShowCheckedModeBanner: false,
+      
+      // --- CONFIGURAÇÃO DE INTERNACIONALIZAÇÃO ---
+      localizationsDelegates: const [
+        AppLocalizations.delegate, // Seus arquivos .arb
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('pt'), // Português
+        Locale('en'), // Inglês
+      ],
+      // ------------------------------------------
+
       theme: ThemeData(
         colorSchemeSeed: Colors.green,
         useMaterial3: true,
@@ -59,8 +74,6 @@ class LogiFlowApp extends StatelessWidget {
       ),
       themeMode: ThemeMode.system,
       
-      // SOLUÇÃO DO PROBLEMA 1: Em vez de initialRoute fixo, 
-      // usamos o 'home' com um StreamBuilder que observa o Firebase.
       home: const AuthWrapper(),
 
       routes: {
@@ -70,14 +83,12 @@ class LogiFlowApp extends StatelessWidget {
       
       onGenerateRoute: (settings) {
         if (settings.name == '/home') {
-          // SOLUÇÃO DO PROBLEMA 2: Verificação de segurança para evitar Crash
           if (settings.arguments is User) {
             final user = settings.arguments as User;
             return MaterialPageRoute(
               builder: (_) => HomeScreen(user: user),
             );
           } else {
-            // Se os argumentos estiverem errados, redireciona para o login em vez de crashar
             debugPrint('Erro: Argumentos para /home são inválidos ou nulos.');
             return MaterialPageRoute(builder: (_) => const LoginScreen());
           }
@@ -88,56 +99,72 @@ class LogiFlowApp extends StatelessWidget {
   }
 }
 
-/// Widget que decide se mostra Login ou Home baseado no estado do Firebase
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Escuta as mudanças de autenticação do Firebase em tempo real
     return StreamBuilder<auth.User?>(
       stream: auth.FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
-        // Enquanto o Firebase está verificando o status (carregando)
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+            body: Center(child: CircularProgressIndicator(color: Colors.green)),
           );
         }
 
-        // Se o usuário estiver logado
         if (snapshot.hasData) {
-          // Nota: Como seu app usa um modelo customizado 'User', 
-          // você precisará converter o user do Firebase para o seu modelo
-          // ou ajustar sua HomeScreen para aceitar o user do Firebase.
-          // Por enquanto, vamos assumir um redirecionamento seguro.
-          
-          // Aqui, para não quebrar sua lógica atual, vamos buscar os dados
-          // e disparar a rota /home. No ideal, o HomeScreen leria direto do Firebase.
+          // O usuário está autenticado no Auth, agora buscamos o Perfil + Settings
           return FutureBuilder<User?>(
-            future: _fetchCustomUser(snapshot.data!.uid),
+            future: _fetchFullUserProfile(snapshot.data!.uid),
             builder: (context, userSnapshot) {
               if (userSnapshot.connectionState == ConnectionState.done && userSnapshot.hasData) {
                 return HomeScreen(user: userSnapshot.data!);
               }
-              return const Scaffold(body: Center(child: CircularProgressIndicator()));
+              // Enquanto busca os dados no Firestore, mostra o loading
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator(color: Colors.green)),
+              );
             },
           );
         }
 
-        // Se não estiver logado, mostra a tela de Login
         return const LoginScreen();
       },
     );
   }
 
-  // Função auxiliar para converter o User do Firebase no seu modelo customizado
-  Future<User?> _fetchCustomUser(String uid) async {
-    // Aqui você deve implementar a lógica que busca os dados do seu Firestore
-    // para preencher o seu modelo 'User' customizado.
-    // Exemplo fictício:
-    // final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
-    // return User.fromFirestore(doc);
-    return null; // Substitua pela sua lógica de busca real
+  /// Busca o perfil completo do usuário combinando os dados de Auth e Firestore
+  Future<User?> _fetchFullUserProfile(String uid) async {
+    try {
+      // 1. Busca o documento do usuário no Firestore
+      final doc = await firebaseService.db.collection('profiles').doc(uid).get();
+
+      if (!doc.exists) {
+        return null; // Usuário autenticado mas sem perfil no banco
+      }
+
+      final data = doc.data()!;
+
+      // 2. Converte o documento do Firestore para o seu objeto 'User' do modelo
+      // Note: Estamos mapeando os campos que você definiu no seu modelo User
+      return User(
+        id: uid,
+        name: data['name'] ?? '',
+        email: data['email'] ?? '',
+        password: '', // Segurança: senha nunca vem do banco
+        phone: data['phone'] ?? '',
+        address: data['address'] ?? '',
+        isSeller: data['is_seller'] == true || data['is_seller'] == 1,
+        // Adicionando o Settings aqui para que o app saiba o idioma e interesses
+        settings: UserSettings(
+          language: data['language'] ?? 'pt',
+          interests: List<String>.from(data['interests'] ?? []),
+        ),
+      );
+    } catch (e) {
+      debugPrint("Erro ao buscar perfil completo: $e");
+      return null;
+    }
   }
 }
