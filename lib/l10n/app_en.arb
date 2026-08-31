@@ -1,0 +1,29 @@
+{
+  "@@locale": "en",
+  "appTitle": "LogiFlow",
+  "loginButton": "Login",
+  "registerButton": "Create Account",
+  "emailLabel": "Email Address",
+  "passwordLabel": "Password",
+  "phoneLabel": "Phone Number",
+  "addressLabel": "Address / Location",
+  "isSeller": "I am a Seller / Producer",
+  "errorEmptyFields": "Please fill all required fields",
+  "errorPasswordShort": "Password must be at least 6 characters",
+  "errorAccountCreated": "Account created successfully! Please login.",
+  "errorGeneric": "An error occurred",
+  "searchHint": "Search for bread, milk, fruits...",
+  "noItemsFound": "No items available at the moment.",
+  "daysLeft": "{count} days left",
+  "@daysLeft": {
+    "description": "Message showing days until expiration",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "rescueUrgent": "RESCUE URGENT",
+  "healthy": "HEALTHY",
+  "premium": "PREMIUM"
+}
