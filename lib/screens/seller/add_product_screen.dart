@@ -1,33 +1,62 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
+
 import '../../models/product.dart';
-import '../../services/firebase_service.dart';
 import '../../models/user.dart';
+import '../../services/firebase_service.dart';
 
 class AddProductScreen extends StatefulWidget {
   final User user;
-  const AddProductScreen({super.key, required this.user});
+
+  const AddProductScreen({
+    super.key,
+    required this.user,
+  });
 
   @override
-  State<AddProductScreen> createState() => _AddProductScreenState();
+  State<AddProductScreen> createState() =>
+      _AddProductScreenState();
 }
 
-class _AddProductScreenState extends State<AddProductScreen> {
-  final _nameController = TextEditingController();
-  final _qtyController = TextEditingController();
-  final _priceController = TextEditingController();
-  final _addressController = TextEditingController();
+class _AddProductScreenState
+    extends State<AddProductScreen> {
 
-  DateTime _expiryDate = DateTime.now().add(const Duration(days: 7));
+  final _nameController =
+      TextEditingController();
+
+  final _qtyController =
+      TextEditingController();
+
+  final _priceController =
+      TextEditingController();
+
+  final _addressController =
+      TextEditingController();
+
+  final ImagePicker _picker =
+      ImagePicker();
+
+  DateTime _expiryDate =
+      DateTime.now().add(
+        const Duration(days: 7),
+      );
+
   String _condition = "Fresh";
   bool _isProducer = true;
-  String _category = "Fruits & Vegetables";
+  String _category =
+      "Fruits & Vegetables";
   bool _isRescue = false;
-  bool _isLoading = false;
 
-  File? _selectedImage;
-  final ImagePicker _picker = ImagePicker();
+  bool _isLoading = false;
+  bool _loadingPlan = true;
+
+  int _productLimit = 10;
+  int _productCount = 0;
+  int _photosPerProduct = 1;
+
+  final List<File> _selectedImages = [];
 
   final List<String> _categories = [
     "Fruits & Vegetables",
@@ -37,7 +66,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
     "Grains & Pasta",
     "Beverages",
     "Ready Meals",
-    "Other"
+    "Other",
   ];
 
   final List<String> _conditions = [
@@ -45,223 +74,617 @@ class _AddProductScreenState extends State<AddProductScreen> {
     "Ripe",
     "Bakery",
     "Near Expiry",
-    "Frozen"
+    "Frozen",
   ];
 
-  Future<void> _pickImage() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      setState(() => _selectedImage = File(image.path));
+  @override
+  void initState() {
+    super.initState();
+    _loadUserLimits();
+  }
+
+  // =====================================================
+  // CARREGA LIMITES DO USUÁRIO
+  // =====================================================
+
+  Future<void> _loadUserLimits() async {
+    try {
+      final uid = widget.user.id!;
+
+      final results = await Future.wait([
+        firebaseService.getProductCount(uid),
+        firebaseService.getProductLimit(uid),
+        firebaseService.getPhotosPerProduct(uid),
+      ]);
+
+      if (!mounted) return;
+
+      setState(() {
+        _productCount = results[0];
+        _productLimit = results[1];
+        _photosPerProduct = results[2];
+        _loadingPlan = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _loadingPlan = false;
+      });
     }
   }
 
-  Future<void> _addProduct() async {
-    if (_nameController.text.trim().isEmpty ||
-        _qtyController.text.trim().isEmpty ||
-        _priceController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please fill name, quantity and price")),
+  // =====================================================
+  // SELEÇÃO DE FOTOS
+  // =====================================================
+
+  Future<void> _pickImages() async {
+    if (_photosPerProduct <= 0) {
+      return;
+    }
+
+    final remaining =
+        _photosPerProduct -
+        _selectedImages.length;
+
+    if (remaining <= 0) {
+      _showMessage(
+        "Your plan allows $_photosPerProduct "
+        "photo(s) per product.",
       );
       return;
     }
 
-    setState(() => _isLoading = true);
+    final images =
+        await _picker.pickMultiImage(
+      imageQuality: 80,
+      maxWidth: 1600,
+      maxHeight: 1600,
+    );
+
+    if (images.isEmpty) {
+      return;
+    }
+
+    final selected =
+        images.take(remaining);
+
+    setState(() {
+      _selectedImages.addAll(
+        selected.map(
+          (image) => File(image.path),
+        ),
+      );
+    });
+
+    if (images.length > remaining) {
+      _showMessage(
+        "Only $remaining more photo(s) "
+        "can be added with your current plan.",
+      );
+    }
+  }
+
+  void _removeImage(int index) {
+    setState(() {
+      _selectedImages.removeAt(index);
+    });
+  }
+
+  // =====================================================
+  // PUBLICAR PRODUTO
+  // =====================================================
+
+  Future<void> _addProduct() async {
+    if (_loadingPlan) {
+      return;
+    }
+
+    // -----------------------------
+    // Validação
+    // -----------------------------
+
+    final name =
+        _nameController.text.trim();
+
+    final quantity =
+        int.tryParse(
+          _qtyController.text.trim(),
+        );
+
+    final price =
+        double.tryParse(
+          _priceController.text
+              .trim()
+              .replaceAll(',', '.'),
+        );
+
+    if (name.isEmpty ||
+        quantity == null ||
+        quantity <= 0 ||
+        price == null ||
+        price < 0) {
+      _showMessage(
+        "Please enter a valid name, "
+        "quantity and price.",
+      );
+      return;
+    }
+
+    // -----------------------------
+    // Verifica limite localmente
+    // -----------------------------
+
+    if (_productCount >= _productLimit) {
+      _showLimitDialog();
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
 
     try {
-      final product = Product(
+      // -----------------------------
+      // Product
+      // -----------------------------
+
+      final product =
+          Product(
         userId: widget.user.id!,
-        name: _nameController.text.trim(),
-        quantity: int.tryParse(_qtyController.text) ?? 1,
-        price: double.tryParse(_priceController.text) ?? 0.0,
+        name: name,
+        quantity: quantity,
+        price: price,
         expiryDate: _expiryDate,
         condition: _condition,
         isProducer: _isProducer,
-        address: _addressController.text.trim().isEmpty
-            ? widget.user.address
-            : _addressController.text.trim(),
+
+        address:
+            _addressController.text
+                    .trim()
+                    .isEmpty
+                ? widget.user.address
+                : _addressController.text.trim(),
+
+        // Compatibilidade com produtos antigos.
         imagePath:
-            null, // No Firestore real, faríamos upload para o Storage primeiro
+            _selectedImages.isNotEmpty
+                ? _selectedImages.first.path
+                : null,
+
+        // As URLs reais do Firebase Storage
+        // serão adicionadas depois do upload.
+        imagePaths: const [],
+
         category: _category,
         isRescue: _isRescue,
+
         wastePreventedKg:
-            (int.tryParse(_qtyController.text) ?? 1) * 0.5, // Estimativa
+            quantity * 0.5,
       );
 
-      await firebaseService.addProduct(product);
+      // -----------------------------
+      // Salva produto
+      // -----------------------------
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text("Product published successfully!"),
-              backgroundColor: Colors.green),
-        );
-        Navigator.pop(context, true);
-      }
+      await firebaseService.addProduct(
+        product,
+      );
+
+      if (!mounted) return;
+
+      _showMessage(
+        "Product published successfully!",
+        backgroundColor: Colors.green,
+      );
+
+      Navigator.pop(context, true);
+
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
-        );
-      }
+      if (!mounted) return;
+
+      _showMessage(
+        "Could not publish product: $e",
+        backgroundColor: Colors.red,
+      );
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
+
+  // =====================================================
+  // LIMITE ATINGIDO
+  // =====================================================
+
+  void _showLimitDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text(
+            "Product limit reached",
+          ),
+          content: Text(
+            "Your current plan allows "
+            "$_productLimit products.\n\n"
+            "You currently have "
+            "$_productCount products.",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text(
+                "Not now",
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+
+                // Futuramente:
+                // abrir SubscriptionScreen
+              },
+              child: const Text(
+                "Upgrade",
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // =====================================================
+  // MENSAGEM
+  // =====================================================
+
+  void _showMessage(
+    String message, {
+    Color? backgroundColor,
+  }) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor:
+            backgroundColor,
+      ),
+    );
+  }
+
+  // =====================================================
+  // INTERFACE
+  // =====================================================
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Add New Product"),
+        title: const Text(
+          "Add New Product",
+        ),
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            GestureDetector(
-              onTap: _pickImage,
-              child: Container(
-                height: 160,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade400),
-                ),
-                child: _selectedImage != null
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.file(_selectedImage!, fit: BoxFit.cover),
-                      )
-                    : const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.add_a_photo, size: 48, color: Colors.grey),
-                          SizedBox(height: 8),
-                          Text("Tap to add photo (optional)"),
-                        ],
-                      ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: "Product Name *",
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _qtyController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: "Quantity *",
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    controller: _priceController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: "Price (USD) *",
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              initialValue: _category,
-              decoration: const InputDecoration(
-                labelText: "Category",
-                border: OutlineInputBorder(),
-              ),
-              items: _categories
-                  .map((cat) => DropdownMenuItem(value: cat, child: Text(cat)))
-                  .toList(),
-              onChanged: (val) => setState(() => _category = val!),
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              initialValue: _condition,
-              decoration: const InputDecoration(
-                  labelText: "Condition", border: OutlineInputBorder()),
-              items: _conditions
-                  .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                  .toList(),
-              onChanged: (val) => setState(() => _condition = val!),
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              title: const Text("Expiry Date"),
-              subtitle: Text(_expiryDate.toString().substring(0, 10)),
-              trailing: IconButton(
-                icon: const Icon(Icons.calendar_today),
-                onPressed: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: _expiryDate,
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime.now().add(const Duration(days: 365)),
-                  );
-                  if (picked != null) setState(() => _expiryDate = picked);
-                },
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _addressController,
-              decoration: const InputDecoration(
-                labelText: "Pickup Address",
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SwitchListTile(
-              title: const Text("I am the local producer/farmer"),
-              value: _isProducer,
-              onChanged: (v) => setState(() => _isProducer = v),
-            ),
-            SwitchListTile(
-              title: const Text("This is a Rescue / Zero Waste item"),
-              value: _isRescue,
-              onChanged: (v) => setState(() => _isRescue = v),
-            ),
-            const SizedBox(height: 30),
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _addProduct,
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                child: _isLoading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text("Publish Product",
-                        style: TextStyle(fontSize: 18, color: Colors.white)),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _qtyController.dispose();
-    _priceController.dispose();
-    _addressController.dispose();
-    super.dispose();
-  }
-}
+      body: _loadingPlan
+          ? const Center(
+              child:
+                  CircularProgressIndicator(),
+            )
+          : SingleChildScrollView(
+              padding:
+                  const EdgeInsets.all(16),
+
+              child: Column(
+                children: [
+
+                  // ===================================
+                  // LIMITE
+                  // ===================================
+
+                  Align(
+                    alignment:
+                        Alignment.centerLeft,
+                    child: Text(
+                      "Products: "
+                      "$_productCount / "
+                      "$_productLimit",
+                      style:
+                          const TextStyle(
+                        fontWeight:
+                            FontWeight.bold,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(
+                    height: 12,
+                  ),
+
+                  // ===================================
+                  // FOTOS
+                  // ===================================
+
+                  GestureDetector(
+                    onTap: _pickImages,
+
+                    child: Container(
+                      height: 180,
+                      width: double.infinity,
+
+                      decoration:
+                          BoxDecoration(
+                        color:
+                            Colors.grey[200],
+                        borderRadius:
+                            BorderRadius
+                                .circular(
+                          12,
+                        ),
+                        border:
+                            Border.all(
+                          color: Colors
+                              .grey
+                              .shade400,
+                        ),
+                      ),
+
+                      child:
+                          _selectedImages
+                                  .isEmpty
+                              ? const Column(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment
+                                          .center,
+                                  children: [
+                                    Icon(
+                                      Icons
+                                          .add_a_photo,
+                                      size: 48,
+                                      color:
+                                          Colors.grey,
+                                    ),
+                                    SizedBox(
+                                      height: 8,
+                                    ),
+                                    Text(
+                                      "Tap to add photos",
+                                    ),
+                                  ],
+                                )
+                              : Padding(
+                                  padding:
+                                      const EdgeInsets
+                                          .all(
+                                    8,
+                                  ),
+                                  child:
+                                      ListView
+                                          .builder(
+                                    scrollDirection:
+                                        Axis.horizontal,
+                                    itemCount:
+                                        _selectedImages
+                                            .length,
+                                    itemBuilder:
+                                        (
+                                      context,
+                                      index,
+                                    ) {
+                                      return Stack(
+                                        children: [
+                                          Container(
+                                            width:
+                                                150,
+                                            margin:
+                                                const EdgeInsets
+                                                    .only(
+                                              right:
+                                                  8,
+                                            ),
+                                            child:
+                                                ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius
+                                                      .circular(
+                                                10,
+                                              ),
+                                              child:
+                                                  Image.file(
+                                                _selectedImages[
+                                                    index],
+                                                fit: BoxFit
+                                                    .cover,
+                                              ),
+                                            ),
+                                          ),
+
+                                          Positioned(
+                                            top:
+                                                5,
+                                            right:
+                                                13,
+                                            child:
+                                                CircleAvatar(
+                                              radius:
+                                                  15,
+                                              backgroundColor:
+                                                  Colors
+                                                      .black54,
+                                              child:
+                                                  IconButton(
+                                                padding:
+                                                    EdgeInsets
+                                                        .zero,
+                                                icon:
+                                                    const Icon(
+                                                  Icons
+                                                      .close,
+                                                  size:
+                                                      18,
+                                                  color:
+                                                      Colors.white,
+                                                ),
+                                                onPressed:
+                                                    () =>
+                                                        _removeImage(
+                                                  index,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  ),
+                                ),
+                    ),
+                  ),
+
+                  const SizedBox(
+                    height: 8,
+                  ),
+
+                  Text(
+                    "${_selectedImages.length} / "
+                    "$_photosPerProduct photos",
+                    style: const TextStyle(
+                      color: Colors.black54,
+                    ),
+                  ),
+
+                  const SizedBox(
+                    height: 20,
+                  ),
+
+                  // ===================================
+                  // NOME
+                  // ===================================
+
+                  TextField(
+                    controller:
+                        _nameController,
+                    decoration:
+                        const InputDecoration(
+                      labelText:
+                          "Product Name *",
+                      border:
+                          OutlineInputBorder(),
+                    ),
+                  ),
+
+                  const SizedBox(
+                    height: 16,
+                  ),
+
+                  // ===================================
+                  // QUANTIDADE / PREÇO
+                  // ===================================
+
+                  Row(
+                    children: [
+
+                      Expanded(
+                        child: TextField(
+                          controller:
+                              _qtyController,
+                          keyboardType:
+                              TextInputType
+                                  .number,
+                          decoration:
+                              const InputDecoration(
+                            labelText:
+                                "Quantity *",
+                            border:
+                                OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(
+                        width: 12,
+                      ),
+
+                      Expanded(
+                        child: TextField(
+                          controller:
+                              _priceController,
+                          keyboardType:
+                              const TextInputType
+                                  .numberWithOptions(
+                            decimal: true,
+                          ),
+                          decoration:
+                              const InputDecoration(
+                            labelText:
+                                "Price (USD) *",
+                            border:
+                                OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(
+                    height: 16,
+                  ),
+
+                  // ===================================
+                  // CATEGORIA
+                  // ===================================
+
+                  DropdownButtonFormField<
+                      String>(
+                    initialValue:
+                        _category,
+                    decoration:
+                        const InputDecoration(
+                      labelText:
+                          "Category",
+                      border:
+                          OutlineInputBorder(),
+                    ),
+                    items: _categories
+                        .map(
+                          (category) =>
+                              DropdownMenuItem(
+                            value:
+                                category,
+                            child:
+                                Text(
+                              category,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value !=
+                          null) {
+                        setState(
+                          () =>
+                              _category =
+                                  value,
+                        );
+                      }
+                    },
+                  ),
+
+                  const SizedBox(
+                    height: 16,
+                  ),
+
+                  // ===================================
+                  // CONDIÇÃO
+                  // ===================================
+
+        
