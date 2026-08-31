@@ -1,13 +1,19 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+
 import '../models/product.dart';
 
 class FirebaseService {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseStorage _storage = FirebaseStorage.instance;
 
   FirebaseAuth get auth => _firebaseAuth;
   FirebaseFirestore get db => _db;
+  FirebaseStorage get storage => _storage;
 
   // =====================================================
   // 1. AUTENTICAÇÃO E PERFIL
@@ -45,11 +51,11 @@ class FirebaseService {
         // Plano inicial
         'plan': 'free',
 
-        // Controle de produtos
+        // Free = 10 produtos
         'product_count': 0,
         'product_limit': 10,
 
-        // Controle de fotos
+        // Free = 1 foto por produto
         'photos_per_product': 1,
 
         // Assinatura
@@ -62,9 +68,7 @@ class FirebaseService {
     } catch (e) {
       try {
         await user.delete();
-      } catch (_) {
-        // Se o delete falhar, ainda propagamos o erro original.
-      }
+      } catch (_) {}
 
       throw Exception(
         "Erro ao criar perfil. Tente novamente.",
@@ -141,11 +145,11 @@ class FirebaseService {
       return value.toInt();
     }
 
-    // Compatibilidade com perfis antigos.
-    final plan = profile['plan']?.toString();
+    final plan =
+        profile['plan']?.toString().toLowerCase();
 
     if (plan == 'premium') {
-      return 100;
+      return 500;
     }
 
     return 10;
@@ -158,14 +162,18 @@ class FirebaseService {
       return 1;
     }
 
-    final value = profile['photos_per_product'];
+    final value =
+        profile['photos_per_product'];
 
     if (value is num) {
       return value.toInt();
     }
 
-    if (profile['plan'] == 'premium') {
-      return 3;
+    final plan =
+        profile['plan']?.toString().toLowerCase();
+
+    if (plan == 'premium') {
+      return 5;
     }
 
     return 1;
@@ -179,13 +187,133 @@ class FirebaseService {
   }
 
   // =====================================================
-  // 3. PRODUTOS
+  // 3. UPLOAD DE FOTOS
   // =====================================================
 
-  /// Cria o produto e incrementa o contador.
+  /// Faz upload das imagens do produto para:
   ///
-  /// A proteção definitiva do limite deve estar nas
-  /// Firestore Security Rules.
+  /// products/{userId}/{productId}/image_0.jpg
+  ///
+  /// Retorna as URLs públicas/autenticadas do Firebase Storage.
+  Future<List<String>> uploadProductImages({
+    required String userId,
+    required String productId,
+    required List<File> images,
+  }) async {
+    if (images.isEmpty) {
+      return [];
+    }
+
+    final maxPhotos =
+        await getPhotosPerProduct(userId);
+
+    if (images.length > maxPhotos) {
+      throw Exception(
+        "Your plan allows only "
+        "$maxPhotos photo(s) per product.",
+      );
+    }
+
+    final urls = <String>[];
+    final uploadedRefs = <Reference>[];
+
+    try {
+      for (int i = 0; i < images.length; i++) {
+        final file = images[i];
+
+        if (!await file.exists()) {
+          throw Exception(
+            "Image file not found.",
+          );
+        }
+
+        final extension =
+            _getImageExtension(file.path);
+
+        final fileName =
+            'image_$i.$extension';
+
+        final ref = _storage
+            .ref()
+            .child('products')
+            .child(userId)
+            .child(productId)
+            .child(fileName);
+
+        final metadata = SettableMetadata(
+          contentType:
+              _getContentType(extension),
+        );
+
+        await ref.putFile(
+          file,
+          metadata,
+        );
+
+        final url =
+            await ref.getDownloadURL();
+
+        urls.add(url);
+        uploadedRefs.add(ref);
+      }
+
+      return urls;
+    } catch (e) {
+      // Se alguma imagem falhar,
+      // remove as imagens que já foram enviadas.
+      for (final ref in uploadedRefs) {
+        try {
+          await ref.delete();
+        } catch (_) {}
+      }
+
+      rethrow;
+    }
+  }
+
+  String _getImageExtension(String path) {
+    final lower =
+        path.toLowerCase();
+
+    if (lower.endsWith('.png')) {
+      return 'png';
+    }
+
+    if (lower.endsWith('.webp')) {
+      return 'webp';
+    }
+
+    if (lower.endsWith('.heic')) {
+      return 'heic';
+    }
+
+    return 'jpg';
+  }
+
+  String _getContentType(String extension) {
+    switch (extension) {
+      case 'png':
+        return 'image/png';
+
+      case 'webp':
+        return 'image/webp';
+
+      case 'heic':
+        return 'image/heic';
+
+      default:
+        return 'image/jpeg';
+    }
+  }
+
+  // =====================================================
+  // 4. PRODUTOS
+  // =====================================================
+
+  /// Adiciona produto.
+  ///
+  /// O limite definitivo deve ser protegido
+  /// também pelas Security Rules.
   Future<void> addProduct(
     Product product, [
     String? userId,
@@ -196,6 +324,16 @@ class FirebaseService {
     if (effectiveUserId != product.userId) {
       throw Exception(
         "Usuário do produto inválido.",
+      );
+    }
+
+    // Verificação adicional antes da gravação.
+    final canAdd =
+        await canAddProduct(effectiveUserId);
+
+    if (!canAdd) {
+      throw Exception(
+        "Product limit reached.",
       );
     }
 
@@ -224,11 +362,6 @@ class FirebaseService {
     await batch.commit();
   }
 
-  /// Feed principal.
-  ///
-  /// Produtos destacados aparecem primeiro.
-  /// Dentro de cada grupo, os que vencem primeiro
-  /// aparecem primeiro.
   Stream<List<Product>> getProductsStream() {
     return _db
         .collection('products')
@@ -244,7 +377,8 @@ class FirebaseService {
         .map(
           (snapshot) => snapshot.docs
               .map(
-                (doc) => Product.fromFirestore(
+                (doc) =>
+                    Product.fromFirestore(
                   doc.id,
                   doc.data(),
                 ),
@@ -253,8 +387,8 @@ class FirebaseService {
         );
   }
 
-  /// Produtos de um vendedor específico.
-  Stream<List<Product>> getSellerProductsStream(
+  Stream<List<Product>>
+      getSellerProductsStream(
     String userId,
   ) {
     return _db
@@ -267,7 +401,8 @@ class FirebaseService {
         .map(
           (snapshot) => snapshot.docs
               .map(
-                (doc) => Product.fromFirestore(
+                (doc) =>
+                    Product.fromFirestore(
                   doc.id,
                   doc.data(),
                 ),
@@ -277,7 +412,7 @@ class FirebaseService {
   }
 
   // =====================================================
-  // 4. ESTOQUE
+  // 5. ESTOQUE
   // =====================================================
 
   Future<void> updateProductStock(
@@ -311,10 +446,9 @@ class FirebaseService {
   }
 
   // =====================================================
-  // 5. EXCLUSÃO DE PRODUTO
+  // 6. EXCLUSÃO DE PRODUTO + FOTOS
   // =====================================================
 
-  /// Remove o produto e reduz o contador do vendedor.
   Future<void> deleteProduct(
     String productId,
   ) async {
@@ -331,7 +465,8 @@ class FirebaseService {
       );
     }
 
-    final data = productSnapshot.data();
+    final data =
+        productSnapshot.data();
 
     if (data == null) {
       throw Exception(
@@ -347,6 +482,28 @@ class FirebaseService {
       throw Exception(
         "Produto sem vendedor.",
       );
+    }
+
+    // Primeiro tenta apagar as imagens.
+    try {
+      final productFolder =
+          _storage
+              .ref()
+              .child('products')
+              .child(sellerId)
+              .child(productId);
+
+      final list =
+          await productFolder.listAll();
+
+      for (final file in list.items) {
+        try {
+          await file.delete();
+        } catch (_) {}
+      }
+    } catch (_) {
+      // Mesmo que o Storage falhe,
+      // continuamos com a exclusão do produto.
     }
 
     final profileRef =
@@ -369,7 +526,7 @@ class FirebaseService {
   }
 
   // =====================================================
-  // 6. CHAT
+  // 7. CHAT
   // =====================================================
 
   String _getChatRoomId(
@@ -417,12 +574,13 @@ class FirebaseService {
     String userA, [
     String? userB,
   ]) {
-    final chatRoomId = userB == null
-        ? userA
-        : _getChatRoomId(
-            userA,
-            userB,
-          );
+    final chatRoomId =
+        userB == null
+            ? userA
+            : _getChatRoomId(
+                userA,
+                userB,
+              );
 
     return _db
         .collection('chats')
@@ -497,13 +655,14 @@ class FirebaseService {
         'participants':
             participants,
       },
-      SetOptions(merge: true),
+      SetOptions(
+        merge: true,
+      ),
     );
 
     await batch.commit();
   }
 }
-
 
 // =====================================================
 // INSTÂNCIA GLOBAL
