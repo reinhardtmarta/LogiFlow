@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:logiflow/services/firebase_service.dart'; // Certifique-se que o caminho está correto
+import 'package:logiflow/services/firebase_service.dart'; 
 import 'login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
