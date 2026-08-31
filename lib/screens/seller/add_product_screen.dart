@@ -22,31 +22,19 @@ class AddProductScreen extends StatefulWidget {
 
 class _AddProductScreenState
     extends State<AddProductScreen> {
+  final _nameController = TextEditingController();
+  final _qtyController = TextEditingController();
+  final _priceController = TextEditingController();
+  final _addressController = TextEditingController();
 
-  final _nameController =
-      TextEditingController();
-
-  final _qtyController =
-      TextEditingController();
-
-  final _priceController =
-      TextEditingController();
-
-  final _addressController =
-      TextEditingController();
-
-  final ImagePicker _picker =
-      ImagePicker();
+  final ImagePicker _picker = ImagePicker();
 
   DateTime _expiryDate =
-      DateTime.now().add(
-        const Duration(days: 7),
-      );
+      DateTime.now().add(const Duration(days: 7));
 
   String _condition = "Fresh";
   bool _isProducer = true;
-  String _category =
-      "Fruits & Vegetables";
+  String _category = "Fruits & Vegetables";
   bool _isRescue = false;
 
   bool _isLoading = false;
@@ -54,6 +42,9 @@ class _AddProductScreenState
 
   int _productLimit = 10;
   int _productCount = 0;
+
+  // Free = 1 foto
+  // Premium = quantidade definida pelo perfil
   int _photosPerProduct = 1;
 
   final List<File> _selectedImages = [];
@@ -105,12 +96,17 @@ class _AddProductScreenState
         _photosPerProduct = results[2];
         _loadingPlan = false;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
 
       setState(() {
         _loadingPlan = false;
       });
+
+      _showMessage(
+        "Could not load account limits: $e",
+        backgroundColor: Colors.red,
+      );
     }
   }
 
@@ -120,12 +116,14 @@ class _AddProductScreenState
 
   Future<void> _pickImages() async {
     if (_photosPerProduct <= 0) {
+      _showMessage(
+        "Your current plan does not allow photos.",
+      );
       return;
     }
 
     final remaining =
-        _photosPerProduct -
-        _selectedImages.length;
+        _photosPerProduct - _selectedImages.length;
 
     if (remaining <= 0) {
       _showMessage(
@@ -135,32 +133,37 @@ class _AddProductScreenState
       return;
     }
 
-    final images =
-        await _picker.pickMultiImage(
-      imageQuality: 80,
-      maxWidth: 1600,
-      maxHeight: 1600,
-    );
-
-    if (images.isEmpty) {
-      return;
-    }
-
-    final selected =
-        images.take(remaining);
-
-    setState(() {
-      _selectedImages.addAll(
-        selected.map(
-          (image) => File(image.path),
-        ),
+    try {
+      final images = await _picker.pickMultiImage(
+        imageQuality: 80,
+        maxWidth: 1600,
+        maxHeight: 1600,
       );
-    });
 
-    if (images.length > remaining) {
+      if (images.isEmpty) {
+        return;
+      }
+
+      final selected = images.take(remaining);
+
+      setState(() {
+        _selectedImages.addAll(
+          selected.map(
+            (image) => File(image.path),
+          ),
+        );
+      });
+
+      if (images.length > remaining) {
+        _showMessage(
+          "Only $remaining more photo(s) "
+          "can be added with your current plan.",
+        );
+      }
+    } catch (e) {
       _showMessage(
-        "Only $remaining more photo(s) "
-        "can be added with your current plan.",
+        "Could not select photos: $e",
+        backgroundColor: Colors.red,
       );
     }
   }
@@ -176,28 +179,23 @@ class _AddProductScreenState
   // =====================================================
 
   Future<void> _addProduct() async {
-    if (_loadingPlan) {
+    if (_loadingPlan || _isLoading) {
       return;
     }
 
+    final name = _nameController.text.trim();
+
+    final quantity = int.tryParse(
+      _qtyController.text.trim(),
+    );
+
+    final price = double.tryParse(
+      _priceController.text.trim().replaceAll(',', '.'),
+    );
+
     // -----------------------------
-    // Validação
+    // VALIDAÇÃO
     // -----------------------------
-
-    final name =
-        _nameController.text.trim();
-
-    final quantity =
-        int.tryParse(
-          _qtyController.text.trim(),
-        );
-
-    final price =
-        double.tryParse(
-          _priceController.text
-              .trim()
-              .replaceAll(',', '.'),
-        );
 
     if (name.isEmpty ||
         quantity == null ||
@@ -205,18 +203,29 @@ class _AddProductScreenState
         price == null ||
         price < 0) {
       _showMessage(
-        "Please enter a valid name, "
-        "quantity and price.",
+        "Please enter a valid name, quantity and price.",
       );
       return;
     }
 
     // -----------------------------
-    // Verifica limite localmente
+    // LIMITE DE PRODUTOS
     // -----------------------------
 
     if (_productCount >= _productLimit) {
       _showLimitDialog();
+      return;
+    }
+
+    // -----------------------------
+    // LIMITE DE FOTOS
+    // -----------------------------
+
+    if (_selectedImages.length > _photosPerProduct) {
+      _showMessage(
+        "Your plan allows only "
+        "$_photosPerProduct photo(s) per product.",
+      );
       return;
     }
 
@@ -225,12 +234,21 @@ class _AddProductScreenState
     });
 
     try {
-      // -----------------------------
-      // Product
-      // -----------------------------
+      // =================================================
+      // 1. ENVIA FOTOS PARA FIREBASE STORAGE
+      // =================================================
 
-      final product =
-          Product(
+      final imageUrls =
+          await firebaseService.uploadProductImages(
+        userId: widget.user.id!,
+        images: _selectedImages,
+      );
+
+      // =================================================
+      // 2. CRIA PRODUTO
+      // =================================================
+
+      final product = Product(
         userId: widget.user.id!,
         name: name,
         quantity: quantity,
@@ -240,21 +258,18 @@ class _AddProductScreenState
         isProducer: _isProducer,
 
         address:
-            _addressController.text
-                    .trim()
-                    .isEmpty
+            _addressController.text.trim().isEmpty
                 ? widget.user.address
                 : _addressController.text.trim(),
 
         // Compatibilidade com produtos antigos.
         imagePath:
-            _selectedImages.isNotEmpty
-                ? _selectedImages.first.path
+            imageUrls.isNotEmpty
+                ? imageUrls.first
                 : null,
 
-        // As URLs reais do Firebase Storage
-        // serão adicionadas depois do upload.
-        imagePaths: const [],
+        // URLs do Firebase Storage.
+        imagePaths: imageUrls,
 
         category: _category,
         isRescue: _isRescue,
@@ -263,13 +278,11 @@ class _AddProductScreenState
             quantity * 0.5,
       );
 
-      // -----------------------------
-      // Salva produto
-      // -----------------------------
+      // =================================================
+      // 3. SALVA PRODUTO NO FIRESTORE
+      // =================================================
 
-      await firebaseService.addProduct(
-        product,
-      );
+      await firebaseService.addProduct(product);
 
       if (!mounted) return;
 
@@ -279,7 +292,6 @@ class _AddProductScreenState
       );
 
       Navigator.pop(context, true);
-
     } catch (e) {
       if (!mounted) return;
 
@@ -319,20 +331,22 @@ class _AddProductScreenState
               onPressed: () {
                 Navigator.pop(context);
               },
-              child: const Text(
-                "Not now",
-              ),
+              child: const Text("Not now"),
             ),
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(context);
 
                 // Futuramente:
-                // abrir SubscriptionScreen
+                // Navigator.push(
+                //   context,
+                //   MaterialPageRoute(
+                //     builder: (_) =>
+                //         const SubscriptionScreen(),
+                //   ),
+                // );
               },
-              child: const Text(
-                "Upgrade",
-              ),
+              child: const Text("Upgrade"),
             ),
           ],
         );
@@ -350,12 +364,10 @@ class _AddProductScreenState
   }) {
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
+    ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor:
-            backgroundColor,
+        backgroundColor: backgroundColor,
       ),
     );
   }
@@ -368,94 +380,66 @@ class _AddProductScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          "Add New Product",
-        ),
+        title: const Text("Add New Product"),
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
       ),
 
       body: _loadingPlan
           ? const Center(
-              child:
-                  CircularProgressIndicator(),
+              child: CircularProgressIndicator(),
             )
           : SingleChildScrollView(
-              padding:
-                  const EdgeInsets.all(16),
-
+              padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
 
-                  // ===================================
-                  // LIMITE
-                  // ===================================
+                  // =====================================
+                  // LIMITE DE PRODUTOS
+                  // =====================================
 
                   Align(
-                    alignment:
-                        Alignment.centerLeft,
+                    alignment: Alignment.centerLeft,
                     child: Text(
                       "Products: "
-                      "$_productCount / "
-                      "$_productLimit",
-                      style:
-                          const TextStyle(
-                        fontWeight:
-                            FontWeight.bold,
+                      "$_productCount / $_productLimit",
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
 
-                  const SizedBox(
-                    height: 12,
-                  ),
+                  const SizedBox(height: 12),
 
-                  // ===================================
+                  // =====================================
                   // FOTOS
-                  // ===================================
+                  // =====================================
 
                   GestureDetector(
                     onTap: _pickImages,
-
                     child: Container(
                       height: 180,
                       width: double.infinity,
-
-                      decoration:
-                          BoxDecoration(
-                        color:
-                            Colors.grey[200],
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
                         borderRadius:
-                            BorderRadius
-                                .circular(
-                          12,
-                        ),
-                        border:
-                            Border.all(
-                          color: Colors
-                              .grey
-                              .shade400,
+                            BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.grey.shade400,
                         ),
                       ),
-
                       child:
-                          _selectedImages
-                                  .isEmpty
+                          _selectedImages.isEmpty
                               ? const Column(
                                   mainAxisAlignment:
-                                      MainAxisAlignment
-                                          .center,
+                                      MainAxisAlignment.center,
                                   children: [
                                     Icon(
-                                      Icons
-                                          .add_a_photo,
+                                      Icons.add_a_photo,
                                       size: 48,
-                                      color:
-                                          Colors.grey,
+                                      color: Colors.grey,
                                     ),
-                                    SizedBox(
-                                      height: 8,
-                                    ),
+                                    SizedBox(height: 8),
                                     Text(
                                       "Tap to add photos",
                                     ),
@@ -463,80 +447,56 @@ class _AddProductScreenState
                                 )
                               : Padding(
                                   padding:
-                                      const EdgeInsets
-                                          .all(
-                                    8,
-                                  ),
-                                  child:
-                                      ListView
-                                          .builder(
+                                      const EdgeInsets.all(8),
+                                  child: ListView.builder(
                                     scrollDirection:
                                         Axis.horizontal,
                                     itemCount:
-                                        _selectedImages
-                                            .length,
+                                        _selectedImages.length,
                                     itemBuilder:
-                                        (
-                                      context,
-                                      index,
-                                    ) {
+                                        (context, index) {
                                       return Stack(
                                         children: [
                                           Container(
-                                            width:
-                                                150,
+                                            width: 150,
                                             margin:
                                                 const EdgeInsets
                                                     .only(
-                                              right:
-                                                  8,
+                                              right: 8,
                                             ),
-                                            child:
-                                                ClipRRect(
+                                            child: ClipRRect(
                                               borderRadius:
                                                   BorderRadius
                                                       .circular(
                                                 10,
                                               ),
-                                              child:
-                                                  Image.file(
+                                              child: Image.file(
                                                 _selectedImages[
                                                     index],
-                                                fit: BoxFit
-                                                    .cover,
+                                                fit: BoxFit.cover,
                                               ),
                                             ),
                                           ),
 
                                           Positioned(
-                                            top:
-                                                5,
-                                            right:
-                                                13,
+                                            top: 5,
+                                            right: 13,
                                             child:
                                                 CircleAvatar(
-                                              radius:
-                                                  15,
+                                              radius: 15,
                                               backgroundColor:
-                                                  Colors
-                                                      .black54,
-                                              child:
-                                                  IconButton(
+                                                  Colors.black54,
+                                              child: IconButton(
                                                 padding:
-                                                    EdgeInsets
-                                                        .zero,
-                                                icon:
-                                                    const Icon(
-                                                  Icons
-                                                      .close,
-                                                  size:
-                                                      18,
+                                                    EdgeInsets.zero,
+                                                icon: const Icon(
+                                                  Icons.close,
+                                                  size: 18,
                                                   color:
                                                       Colors.white,
                                                 ),
-                                                onPressed:
-                                                    () =>
-                                                        _removeImage(
+                                                onPressed: () =>
+                                                    _removeImage(
                                                   index,
                                                 ),
                                               ),
@@ -550,9 +510,7 @@ class _AddProductScreenState
                     ),
                   ),
 
-                  const SizedBox(
-                    height: 8,
-                  ),
+                  const SizedBox(height: 8),
 
                   Text(
                     "${_selectedImages.length} / "
@@ -562,62 +520,47 @@ class _AddProductScreenState
                     ),
                   ),
 
-                  const SizedBox(
-                    height: 20,
-                  ),
+                  const SizedBox(height: 20),
 
-                  // ===================================
+                  // =====================================
                   // NOME
-                  // ===================================
+                  // =====================================
 
                   TextField(
-                    controller:
-                        _nameController,
-                    decoration:
-                        const InputDecoration(
-                      labelText:
-                          "Product Name *",
-                      border:
-                          OutlineInputBorder(),
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      labelText: "Product Name *",
+                      border: OutlineInputBorder(),
                     ),
                   ),
 
-                  const SizedBox(
-                    height: 16,
-                  ),
+                  const SizedBox(height: 16),
 
-                  // ===================================
+                  // =====================================
                   // QUANTIDADE / PREÇO
-                  // ===================================
+                  // =====================================
 
                   Row(
                     children: [
-
                       Expanded(
                         child: TextField(
-                          controller:
-                              _qtyController,
+                          controller: _qtyController,
                           keyboardType:
-                              TextInputType
-                                  .number,
+                              TextInputType.number,
                           decoration:
                               const InputDecoration(
-                            labelText:
-                                "Quantity *",
+                            labelText: "Quantity *",
                             border:
                                 OutlineInputBorder(),
                           ),
                         ),
                       ),
 
-                      const SizedBox(
-                        width: 12,
-                      ),
+                      const SizedBox(width: 12),
 
                       Expanded(
                         child: TextField(
-                          controller:
-                              _priceController,
+                          controller: _priceController,
                           keyboardType:
                               const TextInputType
                                   .numberWithOptions(
@@ -625,8 +568,7 @@ class _AddProductScreenState
                           ),
                           decoration:
                               const InputDecoration(
-                            labelText:
-                                "Price (USD) *",
+                            labelText: "Price (USD) *",
                             border:
                                 OutlineInputBorder(),
                           ),
@@ -635,56 +577,83 @@ class _AddProductScreenState
                     ],
                   ),
 
-                  const SizedBox(
-                    height: 16,
-                  ),
+                  const SizedBox(height: 16),
 
-                  // ===================================
+                  // =====================================
                   // CATEGORIA
-                  // ===================================
+                  // =====================================
 
-                  DropdownButtonFormField<
-                      String>(
-                    initialValue:
-                        _category,
-                    decoration:
-                        const InputDecoration(
-                      labelText:
-                          "Category",
-                      border:
-                          OutlineInputBorder(),
+                  DropdownButtonFormField<String>(
+                    initialValue: _category,
+                    decoration: const InputDecoration(
+                      labelText: "Category",
+                      border: OutlineInputBorder(),
                     ),
                     items: _categories
                         .map(
                           (category) =>
                               DropdownMenuItem(
-                            value:
-                                category,
-                            child:
-                                Text(
-                              category,
-                            ),
+                            value: category,
+                            child: Text(category),
                           ),
                         )
                         .toList(),
                     onChanged: (value) {
-                      if (value !=
-                          null) {
-                        setState(
-                          () =>
-                              _category =
-                                  value,
-                        );
+                      if (value != null) {
+                        setState(() {
+                          _category = value;
+                        });
                       }
                     },
                   ),
 
-                  const SizedBox(
-                    height: 16,
+                  const SizedBox(height: 16),
+
+                  // =====================================
+                  // CONDIÇÃO
+                  // =====================================
+
+                  DropdownButtonFormField<String>(
+                    initialValue: _condition,
+                    decoration: const InputDecoration(
+                      labelText: "Condition",
+                      border: OutlineInputBorder(),
+                    ),
+                    items: _conditions
+                        .map(
+                          (condition) =>
+                              DropdownMenuItem(
+                            value: condition,
+                            child: Text(condition),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _condition = value;
+                        });
+                      }
+                    },
                   ),
 
-                  // ===================================
-                  // CONDIÇÃO
-                  // ===================================
+                  const SizedBox(height: 16),
 
-        
+                  // =====================================
+                  // DATA DE VALIDADE
+                  // =====================================
+
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text(
+                      "Expiry Date",
+                    ),
+                    subtitle: Text(
+                      "${_expiryDate.year}-"
+                      "${_expiryDate.month.toString().padLeft(2, '0')}-"
+                      "${_expiryDate.day.toString().padLeft(2, '0')}",
+                    ),
+                    trailing: IconButton(
+                      icon: const Icon(
+                        Icons.calendar_today,
+                  
