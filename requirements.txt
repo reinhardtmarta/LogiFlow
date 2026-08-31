@@ -3,3 +3,4 @@ numpy
 ipywidgets
 ipython
 llama-cpp-python
+bcrypt
