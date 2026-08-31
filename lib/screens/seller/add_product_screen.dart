@@ -1,8 +1,6 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-
 import '../../models/product.dart';
 import '../../models/user.dart';
 import '../../services/firebase_service.dart';
@@ -27,8 +25,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
   final ImagePicker _picker = ImagePicker();
 
-  DateTime _expiryDate =
-      DateTime.now().add(const Duration(days: 7));
+  DateTime _expiryDate = DateTime.now().add(const Duration(days: 7));
 
   String _condition = "Fresh";
   bool _isProducer = true;
@@ -118,8 +115,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
       return;
     }
 
-    final remaining =
-        _photosPerProduct - _selectedImages.length;
+    final remaining = _photosPerProduct - _selectedImages.length;
 
     if (remaining <= 0) {
       _showMessage(
@@ -207,13 +203,16 @@ class _AddProductScreenState extends State<AddProductScreen> {
     });
 
     try {
-      final imageUrls =
-          await firebaseService.uploadProductImages(
+      final productId = DateTime.now().millisecondsSinceEpoch.toString();
+
+      final imageUrls = await firebaseService.uploadProductImages(
         userId: widget.user.id!,
+        productId: productId,
         images: _selectedImages,
       );
 
       final product = Product(
+        id: productId,
         userId: widget.user.id!,
         name: name,
         quantity: quantity,
@@ -224,8 +223,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
         address: _addressController.text.trim().isEmpty
             ? widget.user.address
             : _addressController.text.trim(),
-        imagePath:
-            imageUrls.isNotEmpty ? imageUrls.first : null,
+        imagePath: imageUrls.isNotEmpty ? imageUrls.first : null,
         imagePaths: imageUrls,
         category: _category,
         isRescue: _isRescue,
@@ -352,8 +350,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                       ),
                       child: _selectedImages.isEmpty
                           ? const Column(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.center,
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Icon(
                                   Icons.add_a_photo,
@@ -367,23 +364,18 @@ class _AddProductScreenState extends State<AddProductScreen> {
                           : Padding(
                               padding: const EdgeInsets.all(8),
                               child: ListView.builder(
-                                scrollDirection:
-                                    Axis.horizontal,
-                                itemCount:
-                                    _selectedImages.length,
-                                itemBuilder:
-                                    (context, index) {
+                                scrollDirection: Axis.horizontal,
+                                itemCount: _selectedImages.length,
+                                itemBuilder: (context, index) {
                                   return Stack(
                                     children: [
                                       Container(
                                         width: 150,
-                                        margin:
-                                            const EdgeInsets.only(
+                                        margin: const EdgeInsets.only(
                                           right: 8,
                                         ),
                                         child: ClipRRect(
-                                          borderRadius:
-                                              BorderRadius.circular(
+                                          borderRadius: BorderRadius.circular(
                                             10,
                                           ),
                                           child: Image.file(
@@ -397,11 +389,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
                                         right: 13,
                                         child: CircleAvatar(
                                           radius: 15,
-                                          backgroundColor:
-                                              Colors.black54,
+                                          backgroundColor: Colors.black54,
                                           child: IconButton(
-                                            padding:
-                                                EdgeInsets.zero,
+                                            padding: EdgeInsets.zero,
                                             icon: const Icon(
                                               Icons.close,
                                               size: 18,
@@ -409,8 +399,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                                             ),
                                             onPressed: _isLoading
                                                 ? null
-                                                : () =>
-                                                    _removeImage(
+                                                : () => _removeImage(
                                                       index,
                                                     ),
                                           ),
@@ -459,8 +448,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                         child: TextField(
                           controller: _priceController,
                           enabled: !_isLoading,
-                          keyboardType:
-                              const TextInputType.numberWithOptions(
+                          keyboardType: const TextInputType.numberWithOptions(
                             decimal: true,
                           ),
                           decoration: const InputDecoration(
@@ -480,8 +468,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                     ),
                     items: _categories
                         .map(
-                          (category) =>
-                              DropdownMenuItem<String>(
+                          (category) => DropdownMenuItem<String>(
                             value: category,
                             child: Text(category),
                           ),
@@ -506,8 +493,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                     ),
                     items: _conditions
                         .map(
-                          (condition) =>
-                              DropdownMenuItem<String>(
+                          (condition) => DropdownMenuItem<String>(
                             value: condition,
                             child: Text(condition),
                           ),
@@ -534,8 +520,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                     ),
                     trailing: IconButton(
                       icon: const Icon(Icons.calendar_today),
-                      onPressed:
-                          _isLoading ? null : _selectExpiryDate,
+                      onPressed: _isLoading ? null : _selectExpiryDate,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -581,8 +566,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                   SizedBox(
                     height: 52,
                     child: ElevatedButton(
-                      onPressed:
-                          _isLoading ? null : _addProduct,
+                      onPressed: _isLoading ? null : _addProduct,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,
                         foregroundColor: Colors.white,
