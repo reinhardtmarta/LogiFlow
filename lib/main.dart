@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart' as auth;
-import 'package:flutter_localizations/flutter_localizations.dart'; // IMPORTANTE
-import 'package:flutter_gen/gen_l10n/app_localizations.dart'; // IMPORTANTE: Gerado pelo flutter gen-l10n
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/intl.dart';
 import 'firebase_options.dart';
 import 'package:logiflow/models/user.dart';
-import 'package:logiflow/services/firebase_service.dart'; // Para buscar dados do Firestore
+import 'package:logiflow/services/firebase_service.dart';
 import 'package:logiflow/screens/auth/login_screen.dart';
 import 'package:logiflow/screens/auth/register_screen.dart';
 import 'package:logiflow/screens/home/home_screen.dart';
@@ -51,7 +51,6 @@ class LogiFlowApp extends StatelessWidget {
       
       // --- CONFIGURAÇÃO DE INTERNACIONALIZAÇÃO ---
       localizationsDelegates: const [
-        AppLocalizations.delegate, // Seus arquivos .arb
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
@@ -60,6 +59,7 @@ class LogiFlowApp extends StatelessWidget {
         Locale('pt'), // Português
         Locale('en'), // Inglês
       ],
+      locale: Locale(Intl.getCurrentLocale().split('_')[0]),
       // ------------------------------------------
 
       theme: ThemeData(
@@ -147,21 +147,7 @@ class AuthWrapper extends StatelessWidget {
       final data = doc.data()!;
 
       // 2. Converte o documento do Firestore para o seu objeto 'User' do modelo
-      // Note: Estamos mapeando os campos que você definiu no seu modelo User
-      return User(
-        id: uid,
-        name: data['name'] ?? '',
-        email: data['email'] ?? '',
-        password: '', // Segurança: senha nunca vem do banco
-        phone: data['phone'] ?? '',
-        address: data['address'] ?? '',
-        isSeller: data['is_seller'] == true || data['is_seller'] == 1,
-        // Adicionando o Settings aqui para que o app saiba o idioma e interesses
-        settings: UserSettings(
-          language: data['language'] ?? 'pt',
-          interests: List<String>.from(data['interests'] ?? []),
-        ),
-      );
+      return User.fromFirestore(uid, data);
     } catch (e) {
       debugPrint("Erro ao buscar perfil completo: $e");
       return null;

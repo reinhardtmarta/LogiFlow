@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:google_generative_ai/google_generative_ai.dart';
-import '../models/user_settings.dart';
+import '../models/user.dart';
 
 enum SearchIntent { search, outOfContext, itemNotFound }
 
@@ -18,7 +18,7 @@ class GemmaService {
   GemmaService._internal();
 
   static const String _apiKey = String.fromEnvironment('GEMINI_API_KEY');
-  static const String _modelName = 'gemma-4-31b-it'; 
+  static const String _modelName = 'gemini-1.5-flash'; 
 
   GenerativeModel? _model;
 
@@ -27,7 +27,7 @@ class GemmaService {
     _model ??= GenerativeModel(
       model: _modelName,
       apiKey: _apiKey,
-      generationConfig: const GenerationConfig(
+      generationConfig: GenerationConfig(
         temperature: 0.1, // Temperatura baixíssima para evitar "alucinações"
         responseMimeType: 'application/json',
       ),
@@ -95,6 +95,20 @@ class GemmaService {
       );
     } catch (e) {
       return IntentResult(intent: SearchIntent.outOfContext, message: "Erro de processamento.");
+    }
+  }
+
+  /// Processa uma query de busca usando o AI
+  Future<String> processQuery(String query, UserSettings settings) async {
+    try {
+      final result = await parseUserIntent(
+        userInput: query,
+        settings: settings,
+        availableProducts: [],
+      );
+      return result.query.isNotEmpty ? result.query : query;
+    } catch (e) {
+      return query;
     }
   }
 }

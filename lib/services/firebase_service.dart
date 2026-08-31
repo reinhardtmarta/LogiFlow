@@ -1,20 +1,20 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart' as auth;
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/product.dart';
 
 class FirebaseService {
-  final auth.FirebaseAuth _auth = auth.FirebaseAuth.instance;
+  final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   // Getters para acesso rápido
-  auth.FirebaseAuth get auth => _auth;
+  FirebaseAuth get auth => _firebaseAuth;
   FirebaseFirestore get db => _db;
 
   // --- 1. AUTENTICAÇÃO E GESTÃO DE PERFIL ---
 
   /// Realiza o cadastro completo: cria o usuário no Auth e o perfil no Firestore.
   /// Implementa o conceito de "Rollback": se o Firestore falhar, o usuário é deletado do Auth.
-  Future<auth.UserCredential> signUp({
+  Future<UserCredential> signUp({
     required String email,
     required String password,
     required String name,
@@ -23,7 +23,7 @@ class FirebaseService {
     required bool isSeller,
   }) async {
     // 1. Cria no Firebase Auth
-    final credential = await _auth.createUserWithEmailAndPassword(
+    final credential = await _firebaseAuth.createUserWithEmailAndPassword(
       email: email,
       password: password,
     );
@@ -55,11 +55,11 @@ class FirebaseService {
     }
   }
 
-  Future<auth.UserCredential> signIn(String email, String password) async {
-    return await _auth.signInWithEmailAndPassword(email: email, password: password);
+  Future<UserCredential> signIn(String email, String password) async {
+    return await _firebaseAuth.signInWithEmailAndPassword(email: email, password: password);
   }
 
-  Future<void> signOut() => _auth.signOut();
+  Future<void> signOut() => _firebaseAuth.signOut();
 
   Future<Map<String, dynamic>?> getUserProfile(String uid) async {
     final doc = await _db.collection('profiles').doc(uid).get();
@@ -121,6 +121,11 @@ class FirebaseService {
     });
   }
 
+  /// Alias para updateProductStock - usado na stock_screen
+  Future<void> setStock(String productId, int quantity) {
+    return updateProductStock(productId, quantity);
+  }
+
   Future<void> deleteProduct(String productId) {
     return _db.collection('products').doc(productId).delete();
   }
@@ -144,6 +149,17 @@ class FirebaseService {
         .map((snapshot) => snapshot.docs
             .map((doc) => doc.data().map<String, dynamic>((key, value) => MapEntry(key, value)))
             .toList());
+  }
+
+  /// Stream de mensagens de uma sala de chat - usado em chat_screen
+  Stream<List<Map<String, dynamic>>> getChatStream(String chatRoomId) {
+    return _db
+        .collection('chats')
+        .doc(chatRoomId)
+        .collection('messages')
+        .orderBy('created_at', descending: false)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => doc.data()).toList());
   }
 
   /// Envia uma mensagem e atualiza o cabeçalho da conversa (para a lista de chats).
