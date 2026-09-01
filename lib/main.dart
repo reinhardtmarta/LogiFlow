@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as auth;
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:logiflow/models/user.dart';
@@ -8,12 +7,12 @@ import 'package:logiflow/services/firebase_service.dart';
 import 'package:logiflow/screens/auth/login_screen.dart';
 import 'package:logiflow/screens/auth/register_screen.dart';
 import 'package:logiflow/screens/home/home_screen.dart';
-import 'firebase_options.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final isFlutterTest = const bool.fromEnvironment('flutter.test', defaultValue: false);
+  final isFlutterTest =
+      const bool.fromEnvironment('flutter.test', defaultValue: false);
 
   if (!isFlutterTest) {
     try {
@@ -143,7 +142,8 @@ class AuthWrapper extends StatelessWidget {
               // Ainda carregando o perfil
               if (userSnapshot.connectionState == ConnectionState.waiting) {
                 return const Scaffold(
-                  body: Center(child: CircularProgressIndicator(color: Colors.green)),
+                  body: Center(
+                      child: CircularProgressIndicator(color: Colors.green)),
                 );
               }
 
@@ -173,7 +173,8 @@ class AuthWrapper extends StatelessWidget {
   /// Busca o perfil completo do usuário (Auth + Firestore)
   Future<User?> _fetchFullUserProfile(String uid) async {
     try {
-      final doc = await firebaseService.db.collection('profiles').doc(uid).get();
+      final doc =
+          await firebaseService.db.collection('profiles').doc(uid).get();
 
       if (!doc.exists) {
         debugPrint('Perfil não encontrado para o uid: $uid');
