@@ -8,15 +8,19 @@ import 'package:logiflow/services/firebase_service.dart';
 import 'package:logiflow/screens/auth/login_screen.dart';
 import 'package:logiflow/screens/auth/register_screen.dart';
 import 'package:logiflow/screens/home/home_screen.dart';
+import 'firebase_options.dart';
 
 Future<void> main() async {
-  // Garante a comunicação com os canais nativos antes de qualquer inicialização
   WidgetsFlutterBinding.ensureInitialized();
 
   final isFlutterTest = const bool.fromEnvironment('flutter.test', defaultValue: false);
 
   if (!isFlutterTest) {
     try {
+      // Versão mais segura (recomendada):
+      // await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+      // Versão atual (caso ainda não tenha o firebase_options.dart)
       await Firebase.initializeApp();
     } catch (error, stackTrace) {
       debugPrint('Erro na inicialização do Firebase: $error');
@@ -24,6 +28,7 @@ Future<void> main() async {
     }
   }
 
+  // Tratamento global de erros de widget
   ErrorWidget.builder = (FlutterErrorDetails details) {
     return Material(
       child: Container(
@@ -50,19 +55,17 @@ class LogiFlowApp extends StatelessWidget {
     return MaterialApp(
       title: 'LogiFlow',
       debugShowCheckedModeBanner: false,
-      
-      // --- CONFIGURAÇÃO DE INTERNACIONALIZAÇÃO ---
+
+      // --- INTERNACIONALIZAÇÃO ---
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: const [
-        Locale('pt'), // Português
-        Locale('en'), // Inglês
+        Locale('pt'),
+        Locale('en'),
       ],
-      // O próprio Flutter detecta o idioma do sistema a partir de supportedLocales
-      // ------------------------------------------
 
       theme: ThemeData(
         colorSchemeSeed: Colors.green,
@@ -75,14 +78,14 @@ class LogiFlowApp extends StatelessWidget {
         brightness: Brightness.dark,
       ),
       themeMode: ThemeMode.system,
-      
+
       home: const AuthWrapper(),
 
       routes: {
         '/login': (_) => const LoginScreen(),
         '/register': (_) => const RegisterScreen(),
       },
-      
+
       onGenerateRoute: (settings) {
         if (settings.name == '/home') {
           if (settings.arguments is User) {
@@ -106,7 +109,7 @@ class AuthWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Se o Firebase não tiver inicializado corretamente, evita crash imediato
+    // Se o Firebase não inicializou
     if (Firebase.apps.isEmpty) {
       return const Scaffold(
         body: Center(
@@ -125,44 +128,63 @@ class AuthWrapper extends StatelessWidget {
     return StreamBuilder<auth.User?>(
       stream: auth.FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
+        // Carregando estado de autenticação
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator(color: Colors.green)),
           );
         }
 
+        // Usuário logado → busca perfil completo
         if (snapshot.hasData) {
           return FutureBuilder<User?>(
             future: _fetchFullUserProfile(snapshot.data!.uid),
             builder: (context, userSnapshot) {
-              if (userSnapshot.connectionState == ConnectionState.done && userSnapshot.hasData) {
+              // Ainda carregando o perfil
+              if (userSnapshot.connectionState == ConnectionState.waiting) {
+                return const Scaffold(
+                  body: Center(child: CircularProgressIndicator(color: Colors.green)),
+                );
+              }
+
+              // Erro ao buscar o perfil
+              if (userSnapshot.hasError) {
+                debugPrint('Erro ao carregar perfil: ${userSnapshot.error}');
+                return const LoginScreen();
+              }
+
+              // Perfil encontrado com sucesso
+              if (userSnapshot.hasData && userSnapshot.data != null) {
                 return HomeScreen(user: userSnapshot.data!);
               }
-              return const Scaffold(
-                body: Center(child: CircularProgressIndicator(color: Colors.green)),
-              );
+
+              // Perfil não existe no Firestore
+              return const LoginScreen();
             },
           );
         }
 
+        // Usuário não logado
         return const LoginScreen();
       },
     );
   }
 
-  /// Busca o perfil completo do usuário combinando os dados de Auth e Firestore
+  /// Busca o perfil completo do usuário (Auth + Firestore)
   Future<User?> _fetchFullUserProfile(String uid) async {
     try {
       final doc = await firebaseService.db.collection('profiles').doc(uid).get();
 
       if (!doc.exists) {
+        debugPrint('Perfil não encontrado para o uid: $uid');
         return null;
       }
 
       final data = doc.data()!;
       return User.fromFirestore(uid, data);
-    } catch (e) {
-      debugPrint("Erro ao buscar perfil completo: $e");
+    } catch (e, stackTrace) {
+      debugPrint('Erro ao buscar perfil completo: $e');
+      debugPrintStack(stackTrace: stackTrace);
       return null;
     }
   }
