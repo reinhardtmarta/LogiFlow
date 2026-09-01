@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart' as auth;
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:intl/intl.dart';
 import 'package:logiflow/models/user.dart';
 import 'package:logiflow/services/firebase_service.dart';
 import 'package:logiflow/screens/auth/login_screen.dart';
@@ -10,6 +9,7 @@ import 'package:logiflow/screens/auth/register_screen.dart';
 import 'package:logiflow/screens/home/home_screen.dart';
 
 Future<void> main() async {
+  // Garante a comunicação com os canais nativos antes de qualquer inicialização
   WidgetsFlutterBinding.ensureInitialized();
 
   final isFlutterTest = const bool.fromEnvironment('flutter.test', defaultValue: false);
@@ -18,7 +18,7 @@ Future<void> main() async {
     try {
       await Firebase.initializeApp();
     } catch (error, stackTrace) {
-      debugPrint('Firebase initialization error: $error');
+      debugPrint('Erro na inicialização do Firebase: $error');
       debugPrintStack(stackTrace: stackTrace);
     }
   }
@@ -27,11 +27,11 @@ Future<void> main() async {
     return Material(
       child: Container(
         color: Colors.white,
-        child: Center(
+        child: const Center(
           child: Text(
             'Ops! Algo deu errado.\nPor favor, tente novamente.',
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.red, fontSize: 16),
+            style: TextStyle(color: Colors.red, fontSize: 16),
           ),
         ),
       ),
@@ -60,7 +60,7 @@ class LogiFlowApp extends StatelessWidget {
         Locale('pt'), // Português
         Locale('en'), // Inglês
       ],
-      locale: Locale(Intl.getCurrentLocale().split('_')[0]),
+      // O próprio Flutter detecta o idioma do sistema a partir de supportedLocales
       // ------------------------------------------
 
       theme: ThemeData(
@@ -105,6 +105,22 @@ class AuthWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Se o Firebase não tiver inicializado corretamente, evita crash imediato
+    if (Firebase.apps.isEmpty) {
+      return const Scaffold(
+        body: Center(
+          child: Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Text(
+              'Falha ao conectar com o serviço de autenticação.\nVerifique a conexão e as credenciais do app.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ),
+      );
+    }
+
     return StreamBuilder<auth.User?>(
       stream: auth.FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
@@ -115,14 +131,12 @@ class AuthWrapper extends StatelessWidget {
         }
 
         if (snapshot.hasData) {
-          // O usuário está autenticado no Auth, agora buscamos o Perfil + Settings
           return FutureBuilder<User?>(
             future: _fetchFullUserProfile(snapshot.data!.uid),
             builder: (context, userSnapshot) {
               if (userSnapshot.connectionState == ConnectionState.done && userSnapshot.hasData) {
                 return HomeScreen(user: userSnapshot.data!);
               }
-              // Enquanto busca os dados no Firestore, mostra o loading
               return const Scaffold(
                 body: Center(child: CircularProgressIndicator(color: Colors.green)),
               );
@@ -138,16 +152,13 @@ class AuthWrapper extends StatelessWidget {
   /// Busca o perfil completo do usuário combinando os dados de Auth e Firestore
   Future<User?> _fetchFullUserProfile(String uid) async {
     try {
-      // 1. Busca o documento do usuário no Firestore
       final doc = await firebaseService.db.collection('profiles').doc(uid).get();
 
       if (!doc.exists) {
-        return null; // Usuário autenticado mas sem perfil no banco
+        return null;
       }
 
       final data = doc.data()!;
-
-      // 2. Converte o documento do Firestore para o seu objeto 'User' do modelo
       return User.fromFirestore(uid, data);
     } catch (e) {
       debugPrint("Erro ao buscar perfil completo: $e");
