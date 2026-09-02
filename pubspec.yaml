@@ -1,6 +1,6 @@
 name: logiflow
 description: "LogiFlow - AI-Driven Food Rescue Marketplace"
-version: 2.0
+version: 2.0.0
 
 environment:
   sdk: '>=3.6.0 <4.0.0'
