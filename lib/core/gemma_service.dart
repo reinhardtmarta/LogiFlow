@@ -19,7 +19,7 @@ class GemmaService {
   GemmaService._internal();
 
   static const String _apiKey = String.fromEnvironment('GEMINI_API_KEY');
-  static const String _modelName = 'gemini-1.5-flash';
+  static const String _modelName = 'gemini-3.5-flash-lite';
 
   GenerativeModel? _model;
 
