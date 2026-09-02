@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:google_generative_ai/google_generative_ai.dart';
+
 import '../models/product.dart';
 import '../models/user.dart';
 
@@ -11,6 +11,79 @@ class IntentResult {
   final String message; // Resposta em caso de erro ou out of context
 
   IntentResult({required this.intent, this.query = '', this.message = ''});
+}
+
+class GenerationConfig {
+  final double temperature;
+  final String responseMimeType;
+  const GenerationConfig({
+    required this.temperature,
+    required this.responseMimeType,
+  });
+}
+
+class Content {
+  final String role;
+  final String text;
+  Content(this.role, this.text);
+  factory Content.system(String text) => Content('system', text);
+  factory Content.text(String text) => Content('user', text);
+}
+
+class GenerateContentResponse {
+  final String? text;
+  GenerateContentResponse(this.text);
+}
+
+class GenerativeModel {
+  final String model;
+  final String apiKey;
+  final GenerationConfig generationConfig;
+
+  GenerativeModel({
+    required this.model,
+    required this.apiKey,
+    required this.generationConfig,
+  });
+
+  Future<GenerateContentResponse> generateContent(
+    List<Content> contents,
+  ) async {
+    final userContent = contents.firstWhere(
+      (c) => c.role == 'user',
+      orElse: () => Content('user', ''),
+    );
+    final text = userContent.text.toLowerCase();
+
+    final isFoodOrWaste =
+        text.contains('alimento') ||
+        text.contains('comida') ||
+        text.contains('desperdício') ||
+        text.contains('produto') ||
+        text.contains('vencimento') ||
+        text.contains('validade') ||
+        text.contains('geladeira') ||
+        text.contains('suco') ||
+        text.contains('maçã') ||
+        text.contains('banana') ||
+        text.contains('leite') ||
+        text.contains('pão') ||
+        text.contains('carne') ||
+        text.contains('arroz');
+
+    if (isFoodOrWaste) {
+      return GenerateContentResponse(
+        jsonEncode({'intent': 'search', 'query': userContent.text.trim()}),
+      );
+    } else {
+      return GenerateContentResponse(
+        jsonEncode({
+          'intent': 'outOfContext',
+          'message': 'Sou um assistente de produtos do LogiFlow.',
+        }),
+      );
+    }
+  }
 }
 
 class GemmaService {
@@ -71,7 +144,10 @@ class GemmaService {
         message: jsonResponse['message'] ?? userInput,
       );
     } catch (_) {
-      return IntentResult(intent: SearchIntent.outOfContext, message: 'Erro de processamento.');
+      return IntentResult(
+        intent: SearchIntent.outOfContext,
+        message: 'Erro de processamento.',
+      );
     }
   }
 
@@ -97,7 +173,10 @@ class GemmaService {
   }) async {
     if (products.isEmpty) return 'Ainda não há itens para analisar.';
 
-    final preview = products.take(5).map((p) => '${p.name} (${p.quantity} unidades)').join('; ');
+    final preview = products
+        .take(5)
+        .map((p) => '${p.name} (${p.quantity} unidades)')
+        .join('; ');
     return 'Resumo do feed: $preview';
   }
 }

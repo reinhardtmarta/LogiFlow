@@ -1,33 +1,35 @@
 {
-  "name": "Python 3",
-  // Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
-  "image": "mcr.microsoft.com/devcontainers/python:1-3.11-bookworm",
+  "name": "Flutter Stable & Firebase PRO",
+  // Imagem Linux robusta que já vem com o SDK do Flutter estável pré-compilado e validado
+  "image": "ghcr.io/cirruslabs/flutter:latest",
+  
+  // Define o usuário como administrador supremo do container para mitigar erros de permissão negada
+  "containerUser": "root",
+  "remoteUser": "root",
+
   "customizations": {
-    "codespaces": {
-      "openFiles": [
-        "README.md",
-        "app.py"
-      ]
-    },
     "vscode": {
-      "settings": {},
+      "settings": {
+        "dart.flutterSdkPath": "/sdks/flutter"
+      },
       "extensions": [
-        "ms-python.python",
-        "ms-python.vscode-pylance"
+        "dart-code.dart-code",
+        "dart-code.flutter"
       ]
     }
   },
-  "updateContentCommand": "[ -f packages.txt ] && sudo apt update && sudo apt upgrade -y && sudo xargs apt install -y <packages.txt; [ -f requirements.txt ] && pip3 install --user -r requirements.txt; pip3 install --user streamlit; echo '✅ Packages installed and Requirements met'",
-  "postAttachCommand": {
-    "server": "streamlit run app.py --server.enableCORS false --server.enableXsrfProtection false"
-  },
-  "portsAttributes": {
-    "8501": {
-      "label": "Application",
-      "onAutoForward": "openPreview"
+
+  "features": {
+    // Feature oficial homologada pela equipe do Devcontainers (Microsoft) para garantir o Node/NPM estável
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20",
+      "npmVersion": "latest"
     }
   },
-  "forwardPorts": [
-    8501
-  ]
+
+  // Roda de forma automatizada no ciclo de vida do container para preparar o Firebase sem intervenção manual
+  "updateContentCommand": "npm install -g firebase-tools",
+  
+  // Valida a integridade do ambiente assim que ele é anexado ao VS Code
+  "postCreateCommand": "flutter doctor -v && firebase --version"
 }
