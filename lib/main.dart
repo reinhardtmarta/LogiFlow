@@ -17,10 +17,8 @@ Future<void> main() async {
   if (!isFlutterTest) {
     try {
       // Versão mais segura (recomendada):
-      // await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
-      // Versão atual (caso ainda não tenha o firebase_options.dart)
-      await Firebase.initializeApp();
+      import 'package:logiflow/firebase_options.dart';
+      await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
     } catch (error, stackTrace) {
       debugPrint('Erro na inicialização do Firebase: $error');
       debugPrintStack(stackTrace: stackTrace);
