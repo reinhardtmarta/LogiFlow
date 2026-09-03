@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart' as auth;
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -17,8 +18,12 @@ Future<void> main() async {
 
   if (!isFlutterTest) {
     try {
-      // Versão mais segura (recomendada):
-      await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+      // Se for Linux e não estiver configurado no FirebaseOptions, pula ou loga
+      if (defaultTargetPlatform == TargetPlatform.linux) {
+         debugPrint('Linux detectado, Firebase não configurado nesta plataforma.');
+      } else {
+         await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+      }
     } catch (error, stackTrace) {
       debugPrint('Erro na inicialização do Firebase: $error');
       debugPrintStack(stackTrace: stackTrace);
