@@ -2,6 +2,7 @@ plugins {
     id "com.android.application"
     id "kotlin-android"
     id "dev.flutter.flutter-gradle-plugin"
+    id "com.google.gms.google-services"
 }
 
 def localProperties = new Properties()
@@ -47,7 +48,7 @@ android {
 
     defaultConfig {
         applicationId "com.logiflow"
-        minSdkVersion = flutter.minSdkVersion // Recomendado para Firebase e APIs modernas
+        minSdkVersion = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutterVersionCode.toInteger()
         versionName = flutterVersionName
@@ -63,11 +64,6 @@ android {
 
 flutter {
     source '../..'
-}
-
-// The Firebase config is supplied locally and is intentionally not committed.
-if (file('google-services.json').exists()) {
-    apply plugin: 'com.google.gms.google-services'
 }
 
 dependencies {
