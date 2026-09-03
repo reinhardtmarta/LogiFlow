@@ -7,6 +7,7 @@ import 'package:logiflow/services/firebase_service.dart';
 import 'package:logiflow/screens/auth/login_screen.dart';
 import 'package:logiflow/screens/auth/register_screen.dart';
 import 'package:logiflow/screens/home/home_screen.dart';
+import 'package:logiflow/firebase_options.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,7 +18,6 @@ Future<void> main() async {
   if (!isFlutterTest) {
     try {
       // Versão mais segura (recomendada):
-      import 'package:logiflow/firebase_options.dart';
       await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
     } catch (error, stackTrace) {
       debugPrint('Erro na inicialização do Firebase: $error');
