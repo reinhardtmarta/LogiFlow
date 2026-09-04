@@ -5,6 +5,24 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
 import '../models/product.dart';
+import '../models/subscription.dart';
+
+class ProductLimitReachedException implements Exception {
+  final Tier tierNeeded;
+  final int currentCount;
+  final int currentLimit;
+
+  ProductLimitReachedException({
+    required this.tierNeeded,
+    required this.currentCount,
+    required this.currentLimit,
+  });
+
+  @override
+  String toString() =>
+      'ProductLimitReachedException(need=${tierNeeded.id}, '
+      'count=$currentCount, limit=$currentLimit)';
+}
 
 class FirebaseService {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
@@ -48,18 +66,16 @@ class FirebaseService {
         'address': address,
         'is_seller': isSeller,
 
-        // Plano inicial
-        'plan': 'free',
-
-        // Free = 10 produtos
+        // Plano inicial (free = 50 produtos)
+        'plan': Tier.free.id,
         'product_count': 0,
-        'product_limit': 10,
-
-        // Free = 1 foto por produto
+        'product_limit': Tier.free.productLimit,
         'photos_per_product': 1,
 
         // Assinatura
-        'subscription_status': 'none',
+        'subscription_status': SubscriptionStatus.none.id,
+        'current_period_end': null,
+        'featured_product_id': null,
 
         'created_at': FieldValue.serverTimestamp(),
       });
@@ -136,53 +152,62 @@ class FirebaseService {
     final profile = await getUserProfile(uid);
 
     if (profile == null) {
-      return 10;
+      return Tier.free.productLimit;
     }
 
     final value = profile['product_limit'];
-
     if (value is num) {
-      return value.toInt();
+      final v = value.toInt();
+      return v == 0 ? Tier.free.productLimit : v;
     }
 
-    final plan =
-        profile['plan']?.toString().toLowerCase();
-
-    if (plan == 'premium') {
-      return 500;
-    }
-
-    return 10;
+    return Tier.free.productLimit;
   }
 
   Future<int> getPhotosPerProduct(String uid) async {
+    final subscription = await getSubscription(uid);
+    switch (subscription.tier) {
+      case Tier.free:
+        return 1;
+      case Tier.basic:
+      case Tier.pro:
+        return 5;
+    }
+  }
+
+  Future<SellerSubscription> getSubscription(String uid) async {
     final profile = await getUserProfile(uid);
-
     if (profile == null) {
-      return 1;
+      return SellerSubscription(
+        tier: Tier.free,
+        productLimit: Tier.free.productLimit,
+        status: SubscriptionStatus.none,
+      );
     }
+    return SellerSubscription.fromProfile(profile);
+  }
 
-    final value =
-        profile['photos_per_product'];
-
-    if (value is num) {
-      return value.toInt();
-    }
-
-    final plan =
-        profile['plan']?.toString().toLowerCase();
-
-    if (plan == 'premium') {
-      return 5;
-    }
-
-    return 1;
+  Stream<SellerSubscription> getSubscriptionStream(String uid) {
+    return _db
+        .collection('profiles')
+        .doc(uid)
+        .snapshots()
+        .map((snap) {
+      if (!snap.exists) {
+        return SellerSubscription(
+          tier: Tier.free,
+          productLimit: Tier.free.productLimit,
+          status: SubscriptionStatus.none,
+        );
+      }
+      return SellerSubscription.fromProfile(snap.data()!);
+    });
   }
 
   Future<bool> canAddProduct(String uid) async {
     final count = await getProductCount(uid);
     final limit = await getProductLimit(uid);
-
+    if (limit < 0) return true;
     return count < limit;
   }
 
@@ -327,13 +352,15 @@ class FirebaseService {
       );
     }
 
-    // Verificação adicional antes da gravação.
-    final canAdd =
-        await canAddProduct(effectiveUserId);
+    final count = await getProductCount(effectiveUserId);
+    final limit = await getProductLimit(effectiveUserId);
 
-    if (!canAdd) {
-      throw Exception(
-        "Product limit reached.",
+    if (limit >= 0 && count >= limit) {
+      final tierNeeded = count >= 1000 ? Tier.pro : Tier.basic;
+      throw ProductLimitReachedException(
+        tierNeeded: tierNeeded,
+        currentCount: count,
+        currentLimit: limit,
       );
     }
 
@@ -365,6 +392,7 @@ class FirebaseService {
   Stream<List<Product>> getProductsStream() {
     return _db
         .collection('products')
+        .where('hidden', isEqualTo: false)
         .orderBy(
           'is_featured',
           descending: true,
@@ -389,14 +417,19 @@ class FirebaseService {
 
   Stream<List<Product>>
       getSellerProductsStream(
-    String userId,
-  ) {
-    return _db
+    String userId, {
+    bool includeHidden = true,
+  }) {
+    var query = _db
         .collection('products')
         .where(
           'seller_id',
           isEqualTo: userId,
-        )
+        );
+    if (!includeHidden) {
+      query = query.where('hidden', isEqualTo: false);
+    }
+    return query
         .snapshots()
         .map(
           (snapshot) => snapshot.docs

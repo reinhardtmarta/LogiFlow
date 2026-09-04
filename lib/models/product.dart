@@ -18,7 +18,9 @@ class Product {
   final String category;
   final bool isRescue;
   final bool isFeatured;
+  final bool hidden;
   final double wastePreventedKg;
+  final DateTime? createdAt;
 
   Product({
     this.id,
@@ -35,7 +37,9 @@ class Product {
     required this.category,
     this.isRescue = false,
     this.isFeatured = false,
+    this.hidden = false,
     this.wastePreventedKg = 0.0,
+    this.createdAt,
   });
 
   factory Product.fromFirestore(
@@ -144,12 +148,25 @@ class Product {
                 data['isFeatured'],
           ),
 
+      hidden:
+          _toBool(
+            data['hidden'],
+          ),
+
       wastePreventedKg:
           _toDouble(
             data['waste_prevented_kg'] ??
                 data['wastePreventedKg'],
           ),
+
+      createdAt: _parseDate(data['created_at'] ?? data['createdAt']),
     );
+  }
+
+  static DateTime? _parseDate(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    return DateTime.tryParse(value.toString());
   }
 
   static int _toInt(dynamic value) {
@@ -204,8 +221,10 @@ class Product {
       'category': category,
       'is_rescue': isRescue,
       'is_featured': isFeatured,
+      'hidden': hidden,
       'waste_prevented_kg':
           wastePreventedKg,
+      'created_at': (createdAt ?? DateTime.now()).toUtc().toIso8601String(),
       'updated_at':
           DateTime.now()
               .toUtc()

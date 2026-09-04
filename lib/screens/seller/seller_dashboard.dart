@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../models/subscription.dart';
 import '../../models/user.dart';
 import '../../models/product.dart';
 import '../../services/firebase_service.dart';
 import 'add_product_screen.dart';
+import 'select_featured_screen.dart';
+import 'upgrade_screen.dart';
 
 class SellerDashboard extends StatefulWidget {
   final User user;
@@ -113,6 +116,9 @@ class _SellerDashboardState extends State<SellerDashboard> {
           final expiringSoonProducts =
               products.where(_expiresSoon).length;
 
+          final hiddenCount =
+              products.where((p) => p.hidden).length;
+
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -131,6 +137,20 @@ class _SellerDashboardState extends State<SellerDashboard> {
                       ),
                     ),
                   ),
+                ),
+
+                const SizedBox(height: 16),
+
+                StreamBuilder<SellerSubscription>(
+                  stream: firebaseService
+                      .getSubscriptionStream(widget.user.id!),
+                  builder: (context, subSnap) {
+                    if (!subSnap.hasData) {
+                      return const SizedBox.shrink();
+                    }
+                    final sub = subSnap.data!;
+                    return _buildPlanBanner(sub, products.length, hiddenCount);
+                  },
                 ),
 
                 const SizedBox(height: 20),
@@ -292,6 +312,93 @@ class _SellerDashboardState extends State<SellerDashboard> {
         },
         icon: const Icon(Icons.add),
         label: const Text("Add Product"),
+      ),
+    );
+  }
+
+  Widget _buildPlanBanner(
+    SellerSubscription sub,
+    int visibleCount,
+    int hiddenCount,
+  ) {
+    final color = sub.isActive ? Colors.green[50]! : Colors.amber[50]!;
+    final iconData =
+        sub.isActive ? Icons.workspace_premium : Icons.upgrade;
+    final iconColor =
+        sub.isActive ? Colors.green[700]! : Colors.orange[800]!;
+    final limitText = sub.productLimit < 0
+        ? 'ilimitados'
+        : 'limite ${sub.productLimit}';
+
+    final title = sub.isActive
+        ? 'Plano ${sub.tier.label} ativo'
+        : 'Você está no plano Grátis ($limitText)';
+    final body = sub.isActive
+        ? 'Você pode destacar 1 produto no feed público.'
+        : (hiddenCount > 0
+            ? 'Você tem $hiddenCount produto(s) oculto(s) por exceder '
+                'o limite. Reduza o estoque ou faça upgrade para liberar.'
+            : 'Faça upgrade para liberar mais produtos e destacar no feed.');
+
+    return Card(
+      color: color,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Icon(iconData, color: iconColor, size: 32),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 15)),
+                  const SizedBox(height: 4),
+                  Text(body, style: const TextStyle(fontSize: 13)),
+                ],
+              ),
+            ),
+            if (sub.isActive)
+              TextButton(
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          SelectFeaturedScreen(subscription: sub),
+                    ),
+                  );
+                },
+                child: const Text('Destacar'),
+              )
+            else
+              ElevatedButton(
+                onPressed: () async {
+                  final currentCount = visibleCount + hiddenCount;
+                  final tierNeeded =
+                      currentCount >= 1000 ? Tier.pro : Tier.basic;
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => UpgradeScreen(
+                        suggestedTier: tierNeeded,
+                        currentCount: currentCount,
+                        currentLimit: sub.productLimit,
+                        subscription: sub,
+                      ),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Upgrade'),
+              ),
+          ],
+        ),
       ),
     );
   }

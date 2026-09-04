@@ -76,7 +76,35 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
                         leading: product.imagePath != null 
                             ? Image.network(product.imagePath!, width: 50, height: 50, fit: BoxFit.cover)
                             : const Icon(Icons.fastfood, color: Colors.green),
-                        title: Text(product.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        title: Row(
+                          children: [
+                            Expanded(
+                              child: Text(product.name,
+                                  style: const TextStyle(fontWeight: FontWeight.bold)),
+                            ),
+                            if (product.isFeatured)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.amber[100],
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: const [
+                                    Icon(Icons.star,
+                                        size: 12, color: Colors.amber),
+                                    SizedBox(width: 2),
+                                    Text('Destaque',
+                                        style: TextStyle(
+                                            fontSize: 10,
+                                            color: Colors.amber)),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
                         subtitle: Text("Expires in $daysLeft days • \$${product.price.toStringAsFixed(2)}"),
                         trailing: Column(
                           mainAxisAlignment: MainAxisAlignment.center,

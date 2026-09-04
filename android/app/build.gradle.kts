@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
@@ -42,4 +44,19 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    val localProperties = Properties()
+    val localPropertiesFile = file(rootProject.file("local.properties"))
+    if (localPropertiesFile.exists()) {
+        localPropertiesFile.inputStream().use { localProperties.load(it) }
+    }
+    val flutterSdkPath = localProperties.getProperty("flutter.sdk")
+    val flutterEngineVersion = file("$flutterSdkPath/bin/cache/engine.stamp")
+        .readText().trim()
+    val flutterEmbedding = "1.0.0-$flutterEngineVersion"
+    debugImplementation("io.flutter:flutter_embedding_debug:$flutterEmbedding")
+    profileImplementation("io.flutter:flutter_embedding_profile:$flutterEmbedding")
+    releaseImplementation("io.flutter:flutter_embedding_release:$flutterEmbedding")
 }

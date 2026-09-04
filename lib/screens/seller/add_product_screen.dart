@@ -2,8 +2,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../models/product.dart';
+import '../../models/subscription.dart';
 import '../../models/user.dart';
 import '../../services/firebase_service.dart';
+import 'upgrade_screen.dart';
 
 class AddProductScreen extends StatefulWidget {
   final User user;
@@ -228,6 +230,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
         category: _category,
         isRescue: _isRescue,
         wastePreventedKg: quantity * 0.5,
+        createdAt: DateTime.now(),
       );
 
       await firebaseService.addProduct(product);
@@ -243,6 +246,11 @@ class _AddProductScreenState extends State<AddProductScreen> {
     } catch (e) {
       if (!mounted) return;
 
+      if (e is ProductLimitReachedException) {
+        await _openUpgrade(e);
+        return;
+      }
+
       _showMessage(
         "Could not publish product: $e",
         backgroundColor: Colors.red,
@@ -256,7 +264,28 @@ class _AddProductScreenState extends State<AddProductScreen> {
     }
   }
 
+  Future<void> _openUpgrade(ProductLimitReachedException e) async {
+    final subscription = await firebaseService.getSubscription(widget.user.id!);
+    if (!mounted) return;
+    final upgraded = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => UpgradeScreen(
+          suggestedTier: e.tierNeeded,
+          currentCount: e.currentCount,
+          currentLimit: e.currentLimit,
+          subscription: subscription,
+        ),
+      ),
+    );
+    if (upgraded == true) {
+      await _loadUserLimits();
+    }
+  }
+
   void _showLimitDialog() {
+    final tierNeeded =
+        _productCount >= 1000 ? Tier.pro : Tier.basic;
     showDialog<void>(
       context: context,
       builder: (context) {
@@ -264,7 +293,8 @@ class _AddProductScreenState extends State<AddProductScreen> {
           title: const Text("Product limit reached"),
           content: Text(
             "Your current plan allows $_productLimit products.\n\n"
-            "You currently have $_productCount products.",
+            "You currently have $_productCount products.\n\n"
+            "Upgrade to ${tierNeeded.label} to keep publishing.",
           ),
           actions: [
             TextButton(
@@ -272,7 +302,16 @@ class _AddProductScreenState extends State<AddProductScreen> {
               child: const Text("Not now"),
             ),
             ElevatedButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                Navigator.pop(context);
+                _openUpgrade(
+                  ProductLimitReachedException(
+                    tierNeeded: tierNeeded,
+                    currentCount: _productCount,
+                    currentLimit: _productLimit,
+                  ),
+                );
+              },
               child: const Text("Upgrade"),
             ),
           ],
