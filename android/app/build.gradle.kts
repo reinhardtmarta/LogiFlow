@@ -42,11 +42,9 @@ android {
 }
 
 flutter {
-    source = "../.."
+    source = "../.."  
 }
 
 dependencies {
     implementation("io.flutter:flutter_embedding_release")
-    
-    // Firebase dependencies are managed by google-services plugin
 }
