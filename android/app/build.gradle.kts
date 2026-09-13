@@ -10,8 +10,7 @@ plugins {
 
 android {
     namespace = "com.logiflow"
-    compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    compileSdk = 35
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -24,16 +23,21 @@ android {
 
     defaultConfig {
         applicationId = "com.logiflow"
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
+        minSdk = 21
+        targetSdk = 35
+        versionCode = 1
+        versionName = "2.0.1"
     }
 
     buildTypes {
         release {
+            isMinifyEnabled = false
             signingConfig = signingConfigs.getByName("debug")
         }
+    }
+
+    lint {
+        disable += "MissingTranslation"
     }
 }
 
@@ -43,4 +47,6 @@ flutter {
 
 dependencies {
     implementation("io.flutter:flutter_embedding_release")
+    
+    // Firebase dependencies are managed by google-services plugin
 }
