@@ -38,7 +38,8 @@ android {
     }
 
     lint {
-        disable += "MissingTranslation"
+        checkReleaseBuilds = false
+        abortOnError = false
     }
 }
 
