@@ -1,0 +1,35 @@
+{
+  "name": "Flutter Stable & Firebase PRO",
+  // Imagem Linux robusta que já vem com o SDK do Flutter estável pré-compilado e validado
+  "image": "ghcr.io/cirruslabs/flutter:latest",
+  
+  // Define o usuário como administrador supremo do container para mitigar erros de permissão negada
+  "containerUser": "root",
+  "remoteUser": "root",
+
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "dart.flutterSdkPath": "/sdks/flutter"
+      },
+      "extensions": [
+        "dart-code.dart-code",
+        "dart-code.flutter"
+      ]
+    }
+  },
+
+  "features": {
+    // Feature oficial homologada pela equipe do Devcontainers (Microsoft) para garantir o Node/NPM estável
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20",
+      "npmVersion": "latest"
+    }
+  },
+
+  // Roda de forma automatizada no ciclo de vida do container para preparar o Firebase sem intervenção manual
+  "updateContentCommand": "npm install -g firebase-tools",
+  
+  // Valida a integridade do ambiente assim que ele é anexado ao VS Code
+  "postCreateCommand": "flutter doctor -v && firebase --version"
+}

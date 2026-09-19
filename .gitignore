@@ -1,0 +1,63 @@
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+build/web/
+
+# Android
+android/local.properties
+android/key.properties
+android/app/google-services.json
+android/app/*.keystore
+android/app/*.jks
+*.apk
+*.aab
+
+# iOS
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/DerivedData/
+ios/Pods/
+ios/.generated/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+!default.pbxuser
+!default.mode1v3
+!default.mode2v3
+!default.perspectivev3
+xcuserdata/
+ios/Runner/GoogleService-Info.plist
+
+# Google Services
+google-services.json
+GoogleService-Info.plist
+
+# Web
+build/web/
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+.DS_Store
+
+# Secrets
+.env
+*.sqlite
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/

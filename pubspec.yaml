@@ -1,0 +1,46 @@
+name: logiflow
+description: "LogiFlow - AI-Driven Food Rescue Marketplace"
+version: 2.0.1
+
+environment:
+  sdk: '>=3.9.0 <4.0.0'
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+  generate: true
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # Core
+  shared_preferences: ^2.3.0
+  intl: ^0.20.2
+  uuid: ^4.5.0
+
+  # Media
+  image_picker: ^1.1.2
+
+  # AI (Google Generative AI - Gemini/Gemma)
+  google_generative_ai: ^0.4.7
+  
+  
+  # Firebase (Updated for compatibility with latest AGP and NDK)
+  firebase_core: ^4.15.0
+  firebase_auth: ^6.7.0
+  cloud_firestore: ^6.10.0
+  firebase_storage: ^13.6.0
+  cloud_functions: ^6.5.0
+  url_launcher: ^6.3.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_gen: ^5.4.0
+  build_runner: ^2.4.0
+  intl_utils: ^2.8.5

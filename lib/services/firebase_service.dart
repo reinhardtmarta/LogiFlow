@@ -1,0 +1,691 @@
+import 'dart:io';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+
+import '../models/product.dart';
+import '../models/subscription.dart';
+
+class ProductLimitReachedException implements Exception {
+  final Tier tierNeeded;
+  final int currentCount;
+  final int currentLimit;
+
+  ProductLimitReachedException({
+    required this.tierNeeded,
+    required this.currentCount,
+    required this.currentLimit,
+  });
+
+  @override
+  String toString() =>
+      'ProductLimitReachedException(need=${tierNeeded.id}, '
+      'count=$currentCount, limit=$currentLimit)';
+}
+
+class FirebaseService {
+  // Do not resolve Firebase instances while the global service is created.
+  // Firebase.initializeApp() runs asynchronously in main(), so eager fields
+  // here can throw [core/no-app] before Flutter renders the first screen.
+  FirebaseAuth get auth => FirebaseAuth.instance;
+  FirebaseFirestore get db => FirebaseFirestore.instance;
+  FirebaseStorage get storage => FirebaseStorage.instance;
+
+  // =====================================================
+  // 1. AUTENTICAÇÃO E PERFIL
+  // =====================================================
+
+  Future<UserCredential> signUp({
+    required String email,
+    required String password,
+    required String name,
+    required String phone,
+    required String address,
+    required bool isSeller,
+  }) async {
+    final credential =
+        await auth.createUserWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+
+    final user = credential.user;
+
+    if (user == null) {
+      throw Exception("Falha ao criar conta.");
+    }
+
+    try {
+      await saveUserData(user.uid, {
+        'uid': user.uid,
+        'email': email,
+        'name': name,
+        'phone': phone,
+        'address': address,
+        'is_seller': isSeller,
+        'created_at': FieldValue.serverTimestamp(),
+      });
+
+      return credential;
+    } catch (e) {
+      try {
+        await user.delete();
+      } catch (_) {}
+
+      throw Exception(
+        "Erro ao criar perfil. Tente novamente.",
+      );
+    }
+  }
+
+  Future<UserCredential> signIn(
+    String email,
+    String password,
+  ) {
+    return auth.signInWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+  }
+
+  Future<void> signOut() {
+    return auth.signOut();
+  }
+
+  Future<Map<String, dynamic>?> getUserProfile(
+    String uid,
+  ) async {
+    final doc =
+        await db.collection('profiles').doc(uid).get();
+
+    return doc.exists ? doc.data() : null;
+  }
+
+  Future<void> saveUserData(
+    String uid,
+    Map<String, dynamic> data,
+  ) {
+    return db
+        .collection('profiles')
+        .doc(uid)
+        .set(
+          data,
+          SetOptions(merge: true),
+        );
+  }
+
+  // =====================================================
+  // 2. LIMITES DO USUÁRIO
+  // =====================================================
+
+  Future<int> getProductCount(String uid) async {
+    final profile = await getUserProfile(uid);
+
+    if (profile == null) {
+      return 0;
+    }
+
+    final value = profile['product_count'];
+
+    if (value is num) {
+      return value.toInt();
+    }
+
+    return 0;
+  }
+
+  Future<int> getProductLimit(String uid) async {
+    final profile = await getUserProfile(uid);
+
+    if (profile == null) {
+      return Tier.free.productLimit;
+    }
+
+    final value = profile['product_limit'];
+    if (value is num) {
+      final v = value.toInt();
+      return v == 0 ? Tier.free.productLimit : v;
+    }
+
+    return Tier.free.productLimit;
+  }
+
+  Future<int> getPhotosPerProduct(String uid) async {
+    final subscription = await getSubscription(uid);
+    switch (subscription.tier) {
+      case Tier.free:
+        return 1;
+      case Tier.basic:
+      case Tier.pro:
+        return 5;
+    }
+  }
+
+  Future<SellerSubscription> getSubscription(String uid) async {
+    final profile = await getUserProfile(uid);
+    if (profile == null) {
+      return SellerSubscription(
+        tier: Tier.free,
+        productLimit: Tier.free.productLimit,
+        status: SubscriptionStatus.none,
+      );
+    }
+    return SellerSubscription.fromProfile(profile);
+  }
+
+  Stream<SellerSubscription> getSubscriptionStream(String uid) {
+    return db
+        .collection('profiles')
+        .doc(uid)
+        .snapshots()
+        .map((snap) {
+      if (!snap.exists) {
+        return SellerSubscription(
+          tier: Tier.free,
+          productLimit: Tier.free.productLimit,
+          status: SubscriptionStatus.none,
+        );
+      }
+      return SellerSubscription.fromProfile(snap.data()!);
+    });
+  }
+
+  Future<bool> canAddProduct(String uid) async {
+    final count = await getProductCount(uid);
+    final limit = await getProductLimit(uid);
+    if (limit < 0) return true;
+    return count < limit;
+  }
+
+  // =====================================================
+  // 3. UPLOAD DE FOTOS
+  // =====================================================
+
+  /// Faz upload das imagens do produto para:
+  ///
+  /// products/{userId}/{productId}/image_0.jpg
+  ///
+  /// Retorna as URLs públicas/autenticadas do Firebase Storage.
+  Future<List<String>> uploadProductImages({
+    required String userId,
+    required String productId,
+    required List<File> images,
+  }) async {
+    if (images.isEmpty) {
+      return [];
+    }
+
+    final maxPhotos =
+        await getPhotosPerProduct(userId);
+
+    if (images.length > maxPhotos) {
+      throw Exception(
+        "Your plan allows only "
+        "$maxPhotos photo(s) per product.",
+      );
+    }
+
+    final urls = <String>[];
+    final uploadedRefs = <Reference>[];
+
+    try {
+      for (int i = 0; i < images.length; i++) {
+        final file = images[i];
+
+        if (!await file.exists()) {
+          throw Exception(
+            "Image file not found.",
+          );
+        }
+
+        final extension =
+            _getImageExtension(file.path);
+
+        final fileName =
+            'image_$i.$extension';
+
+        final ref = storage
+            .ref()
+            .child('products')
+            .child(userId)
+            .child(productId)
+            .child(fileName);
+
+        final metadata = SettableMetadata(
+          contentType:
+              _getContentType(extension),
+        );
+
+        await ref.putFile(
+          file,
+          metadata,
+        );
+
+        final url =
+            await ref.getDownloadURL();
+
+        urls.add(url);
+        uploadedRefs.add(ref);
+      }
+
+      return urls;
+    } catch (e) {
+      // Se alguma imagem falhar,
+      // remove as imagens que já foram enviadas.
+      for (final ref in uploadedRefs) {
+        try {
+          await ref.delete();
+        } catch (_) {}
+      }
+
+      rethrow;
+    }
+  }
+
+  String _getImageExtension(String path) {
+    final lower =
+        path.toLowerCase();
+
+    if (lower.endsWith('.png')) {
+      return 'png';
+    }
+
+    if (lower.endsWith('.webp')) {
+      return 'webp';
+    }
+
+    if (lower.endsWith('.heic')) {
+      return 'heic';
+    }
+
+    return 'jpg';
+  }
+
+  String _getContentType(String extension) {
+    switch (extension) {
+      case 'png':
+        return 'image/png';
+
+      case 'webp':
+        return 'image/webp';
+
+      case 'heic':
+        return 'image/heic';
+
+      default:
+        return 'image/jpeg';
+    }
+  }
+
+  // =====================================================
+  // 4. PRODUTOS
+  // =====================================================
+
+  /// Adiciona produto.
+  ///
+  /// O limite definitivo deve ser protegido
+  /// também pelas Security Rules.
+  Future<void> addProduct(
+    Product product, [
+    String? userId,
+  ]) async {
+    final effectiveUserId =
+        userId ?? product.userId;
+
+    if (effectiveUserId != product.userId) {
+      throw Exception(
+        "Usuário do produto inválido.",
+      );
+    }
+
+    final count = await getProductCount(effectiveUserId);
+    final limit = await getProductLimit(effectiveUserId);
+
+    if (limit >= 0 && count >= limit) {
+      final tierNeeded = count >= 1000 ? Tier.pro : Tier.basic;
+      throw ProductLimitReachedException(
+        tierNeeded: tierNeeded,
+        currentCount: count,
+        currentLimit: limit,
+      );
+    }
+
+    final productRef =
+        db.collection('products').doc();
+
+    final profileRef =
+        db.collection('profiles')
+            .doc(effectiveUserId);
+
+    final batch = db.batch();
+
+    batch.set(
+      productRef,
+      product.toFirestore(),
+    );
+
+    batch.update(
+      profileRef,
+      {
+        'product_count':
+            FieldValue.increment(1),
+      },
+    );
+
+    await batch.commit();
+  }
+
+  Stream<List<Product>> getProductsStream() {
+    return db
+        .collection('products')
+        .where('hidden', isEqualTo: false)
+        .orderBy(
+          'is_featured',
+          descending: true,
+        )
+        .orderBy(
+          'expiry_date',
+          descending: false,
+        )
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) =>
+                    Product.fromFirestore(
+                  doc.id,
+                  doc.data(),
+                ),
+              )
+              .toList(),
+        );
+  }
+
+  Stream<List<Product>>
+      getSellerProductsStream(
+    String userId, {
+    bool includeHidden = true,
+  }) {
+    var query = db
+        .collection('products')
+        .where(
+          'seller_id',
+          isEqualTo: userId,
+        );
+    if (!includeHidden) {
+      query = query.where('hidden', isEqualTo: false);
+    }
+    return query
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) =>
+                    Product.fromFirestore(
+                  doc.id,
+                  doc.data(),
+                ),
+              )
+              .toList(),
+        );
+  }
+
+  // =====================================================
+  // 5. ESTOQUE
+  // =====================================================
+
+  Future<void> updateProductStock(
+    String productId,
+    int newQuantity,
+  ) async {
+    if (newQuantity < 0) {
+      throw Exception(
+        "Quantidade não pode ser negativa.",
+      );
+    }
+
+    await db
+        .collection('products')
+        .doc(productId)
+        .update({
+      'quantity': newQuantity,
+      'updated_at':
+          FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> setStock(
+    String productId,
+    int quantity,
+  ) {
+    return updateProductStock(
+      productId,
+      quantity,
+    );
+  }
+
+  // =====================================================
+  // 6. EXCLUSÃO DE PRODUTO + FOTOS
+  // =====================================================
+
+  Future<void> deleteProduct(
+    String productId,
+  ) async {
+    final productRef =
+        db.collection('products')
+            .doc(productId);
+
+    final productSnapshot =
+        await productRef.get();
+
+    if (!productSnapshot.exists) {
+      throw Exception(
+        "Produto não encontrado.",
+      );
+    }
+
+    final data =
+        productSnapshot.data();
+
+    if (data == null) {
+      throw Exception(
+        "Dados do produto inválidos.",
+      );
+    }
+
+    final sellerId =
+        data['seller_id']?.toString();
+
+    if (sellerId == null ||
+        sellerId.isEmpty) {
+      throw Exception(
+        "Produto sem vendedor.",
+      );
+    }
+
+    // Primeiro tenta apagar as imagens.
+    try {
+      final productFolder =
+          storage
+              .ref()
+              .child('products')
+              .child(sellerId)
+              .child(productId);
+
+      final list =
+          await productFolder.listAll();
+
+      for (final file in list.items) {
+        try {
+          await file.delete();
+        } catch (_) {}
+      }
+    } catch (_) {
+      // Mesmo que o Storage falhe,
+      // continuamos com a exclusão do produto.
+    }
+
+    final profileRef =
+        db.collection('profiles')
+            .doc(sellerId);
+
+    final batch = db.batch();
+
+    batch.delete(productRef);
+
+    batch.update(
+      profileRef,
+      {
+        'product_count':
+            FieldValue.increment(-1),
+      },
+    );
+
+    await batch.commit();
+  }
+
+  // =====================================================
+  // 7. CHAT
+  // =====================================================
+
+  String _getChatRoomId(
+    String userA,
+    String userB,
+  ) {
+    final participants = [
+      userA,
+      userB,
+    ]..sort();
+
+    return participants.join('_');
+  }
+
+  Stream<List<Map<String, dynamic>>>
+      getChatMessages(
+    String userA,
+    String userB,
+  ) {
+    return db
+        .collection('chats')
+        .doc(
+          _getChatRoomId(
+            userA,
+            userB,
+          ),
+        )
+        .collection('messages')
+        .orderBy(
+          'created_at',
+          descending: false,
+        )
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) => doc.data(),
+              )
+              .toList(),
+        );
+  }
+
+  Stream<List<Map<String, dynamic>>>
+      getChatStream(
+    String userA, [
+    String? userB,
+  ]) {
+    final chatRoomId =
+        userB == null
+            ? userA
+            : _getChatRoomId(
+                userA,
+                userB,
+              );
+
+    return db
+        .collection('chats')
+        .doc(chatRoomId)
+        .collection('messages')
+        .orderBy(
+          'created_at',
+          descending: false,
+        )
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) => doc.data(),
+              )
+              .toList(),
+        );
+  }
+
+  Future<void> sendMessage(
+    String senderId,
+    String receiverId,
+    String message,
+  ) async {
+    if (message.trim().isEmpty) {
+      throw Exception(
+        "Mensagem vazia.",
+      );
+    }
+
+    final chatRoomId =
+        _getChatRoomId(
+      senderId,
+      receiverId,
+    );
+
+    final participants = [
+      senderId,
+      receiverId,
+    ]..sort();
+
+    final batch = db.batch();
+
+    final newMessageRef = db
+        .collection('chats')
+        .doc(chatRoomId)
+        .collection('messages')
+        .doc();
+
+    batch.set(
+      newMessageRef,
+      {
+        'sender_id': senderId,
+        'receiver_id': receiverId,
+        'message': message.trim(),
+        'created_at':
+            FieldValue.serverTimestamp(),
+      },
+    );
+
+    final chatRoomRef =
+        db.collection('chats')
+            .doc(chatRoomId);
+
+    batch.set(
+      chatRoomRef,
+      {
+        'last_message':
+            message.trim(),
+        'last_update':
+            FieldValue.serverTimestamp(),
+        'participants':
+            participants,
+      },
+      SetOptions(
+        merge: true,
+      ),
+    );
+
+    await batch.commit();
+  }
+}
+
+// =====================================================
+// INSTÂNCIA GLOBAL
+// =====================================================
+
+final firebaseService = FirebaseService();
