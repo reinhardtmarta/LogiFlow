@@ -1,0 +1,8 @@
+{
+  "name": "LogiFlow",
+  "description": "LogiFlow - AI-Driven Food Rescue & Inventory Management Marketplace connecting food producers, sellers, and consumers.",
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ],
+  "permissions": []
+}
