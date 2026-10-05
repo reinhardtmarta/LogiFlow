@@ -12,23 +12,23 @@ const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 const isProduction = process.env.NODE_ENV === 'production';
 
-// 1. Hardened Server Identification - Disable fingerprinting
+// 1. Oculta cabeçalho do servidor para evitar fingerprinting
 app.disable('x-powered-by');
 
-// 2. HTTP Security Headers with Helmet
+// 2. Cabeçalhos de Segurança HTTP com Helmet
 app.use(
   helmet({
-    contentSecurityPolicy: false, // Managed by client / Vite for dynamic styles and Google Pay API
+    contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
     crossOriginResourcePolicy: { policy: 'cross-origin' },
   })
 );
 
-// 3. Strict Request Size Limits - Prevents memory exhaustion & DoS attacks
+// 3. Limite de tamanho de requisição contra esgotamento de memória (DoS)
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
-// 4. Secure CORS Configuration
+// 4. Configuração de CORS Seguro
 app.use(
   cors({
     origin: true,
@@ -38,10 +38,10 @@ app.use(
   })
 );
 
-// 5. Global Rate Limiter - Defense against brute force & DDoS
+// 5. Rate Limiting: Proteção contra Força Bruta & Sobrecarga
 const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 300, // Max 300 requests per 15 minutes per IP
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 300, // Máximo de 300 requisições por IP
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -51,7 +51,7 @@ const globalLimiter = rateLimit({
 
 const sensitiveOpsLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 30, // 30 requests per 15 min for payments and audits
+  max: 30, // Máximo de 30 requisições para operações sensíveis
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -61,7 +61,7 @@ const sensitiveOpsLimiter = rateLimit({
 
 app.use('/api/', globalLimiter);
 
-// 6. Security & Health API Endpoints
+// 6. Rotas de Saúde e Auditoria de Segurança
 app.get('/api/health', (req: Request, res: Response) => {
   res.json({
     status: 'ok',
@@ -88,7 +88,7 @@ app.get('/api/security/audit', sensitiveOpsLimiter, (req: Request, res: Response
   });
 });
 
-// Secure Payment Proof Verification Endpoint
+// Endpoint de Verificação e Auditoria de Pagamento Mercado Pago
 app.post('/api/verify-payment', sensitiveOpsLimiter, (req: Request, res: Response) => {
   const { paymentHash, userId, amountCents } = req.body;
 
@@ -100,7 +100,7 @@ app.post('/api/verify-payment', sensitiveOpsLimiter, (req: Request, res: Respons
     return res.status(400).json({ error: 'Identificador de usuário inválido.' });
   }
 
-  // Validate format of cryptographic payment receipt
+  // Validação do formato do comprovante criptográfico
   const validHashPattern = /^MP-SEC-[A-F0-9]{6}-[0-9]{6}$/i;
   const isDirectPattern = /^MP-DIR-[A-Z0-9]{6,10}-[0-9]{4,6}$/i;
 
@@ -108,7 +108,6 @@ app.post('/api/verify-payment', sensitiveOpsLimiter, (req: Request, res: Respons
     return res.status(400).json({ error: 'Formato de hash de transação ilegítimo ou violado.' });
   }
 
-  // Return verified authorization status
   return res.json({
     verified: true,
     authorizedAmount: amountCents || 2000,
@@ -120,13 +119,16 @@ app.post('/api/verify-payment', sensitiveOpsLimiter, (req: Request, res: Respons
   });
 });
 
-// 7. Mount Frontend (Vite in Development, Static Build in Production)
+// 7. Montagem do Frontend (Vite em dev / Arquivos estáticos em produção)
 async function startServer() {
   if (!isProduction) {
-    // Dynamic import to keep Vite as devDependency
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: false,
+        ws: false,
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);
@@ -138,18 +140,18 @@ async function startServer() {
     });
   }
 
-  // Central Error Handler
+  // Tratamento centralizado de erros
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    console.error('Unhandled server error:', err);
+    console.error('Erro no servidor:', err);
     res.status(500).json({ error: 'Erro interno no servidor de aplicação.' });
   });
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[LogiFlow Secure Backend] Server running on http://0.0.0.0:${PORT} (${isProduction ? 'prod' : 'dev'})`);
+    console.log(`[LogiFlow Backend] Rodando em http://0.0.0.0:${PORT} (${isProduction ? 'prod' : 'dev'})`);
   });
 }
 
 startServer().catch((err) => {
-  console.error('Failed to start server:', err);
+  console.error('Falha ao iniciar servidor:', err);
   process.exit(1);
 });

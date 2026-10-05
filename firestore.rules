@@ -3,7 +3,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Common security helper functions
+    // Funções auxiliares de segurança
     function isSignedIn() {
       return request.auth != null;
     }
@@ -18,18 +18,15 @@ service cloud.firestore {
       );
     }
 
-    // Profiles collection (User Accounts & Seller Quotas)
+    // Coleção de Perfis e Cotas de Produtor
     match /profiles/{userId} {
-      // Anyone can read public profile details (name, seller status)
-      allow read: if true;
+      allow read: if isOwner(userId);
 
-      // On creation, ensure user is owner and initial quota starts at free limit (50)
       allow create: if isOwner(userId) && (
         request.resource.data.uid == request.auth.uid &&
         (request.resource.data.product_limit == null || request.resource.data.product_limit <= 50)
       );
 
-      // Updates only by the owner; cannot arbitrarily spoof quota
       allow update: if isOwner(userId) && (
         request.resource.data.uid == request.auth.uid &&
         (
@@ -42,12 +39,10 @@ service cloud.firestore {
       allow delete: if isOwner(userId);
     }
 
-    // Products collection (Marketplace Inventory)
+    // Coleção de Produtos de Alimentos (Estoque)
     match /products/{productId} {
-      // Public marketplace feed can be read by anyone
       allow read: if true;
 
-      // Creation: must be authenticated, seller_id matches user, valid inputs
       allow create: if isSignedIn() &&
         request.resource.data.seller_id == request.auth.uid &&
         request.resource.data.name is string &&
@@ -59,7 +54,6 @@ service cloud.firestore {
         request.resource.data.quantity >= 0 &&
         request.resource.data.quantity <= 100000;
 
-      // Update: only the owner/seller can update their own products; cannot transfer seller_id
       allow update: if isSignedIn() &&
         resource.data.seller_id == request.auth.uid &&
         request.resource.data.seller_id == request.auth.uid &&
@@ -68,40 +62,33 @@ service cloud.firestore {
         request.resource.data.quantity is number &&
         request.resource.data.quantity >= 0;
 
-      // Deletion: strictly restricted to product owner
       allow delete: if isSignedIn() && resource.data.seller_id == request.auth.uid;
     }
 
-    // Chats and Private Messages (Privacy Isolation)
+    // Mensagens e Chats Privados (Isolamento Estrito)
     match /chats/{chatId} {
-      // Only the two direct participants can view or update chat metadata
       allow read: if isChatParticipant(chatId);
       allow write: if isChatParticipant(chatId);
 
       match /messages/{messageId} {
-        // Strictly isolated: only participants can read messages
         allow read: if isChatParticipant(chatId);
-
-        // Can only send if participant, sender is auth user, and message has safe length
         allow create: if isChatParticipant(chatId) &&
           request.resource.data.sender_id == request.auth.uid &&
           request.resource.data.message is string &&
           request.resource.data.message.size() > 0 &&
           request.resource.data.message.size() <= 2000;
-
-        // Messages are immutable once sent (prevent tampering with negotiation records)
         allow update, delete: if false;
       }
     }
 
-    // Payment Audit Log (Financial records are strictly immutable)
+    // Registro de Auditoria de Pagamento (Imutável)
     match /payments/{paymentId} {
       allow read: if isSignedIn() && resource.data.user_id == request.auth.uid;
       allow create: if isSignedIn() && request.resource.data.user_id == request.auth.uid;
       allow update, delete: if false;
     }
 
-    // Default deny all other collections
+    // Bloqueia qualquer outra rota não autorizada
     match /{document=**} {
       allow read, write: if false;
     }

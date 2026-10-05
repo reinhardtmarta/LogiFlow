@@ -57,6 +57,12 @@ build/web/
 .env.*
 !.env.example
 *.sqlite
+*.pem
+*.key
+*.p12
+*.pfx
+serviceAccountKey.json
+service-account*.json
 
 # Python
 __pycache__/
@@ -67,7 +73,9 @@ node_modules/
 
 # Build output
 dist/
+dist-ssr/
 
 # Firebase local state and logs
 .firebase/
 *-debug.log
+*.local
