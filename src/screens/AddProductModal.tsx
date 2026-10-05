@@ -55,6 +55,44 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     { label: 'Laticínios', url: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=600&q=80' },
   ];
 
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (selectedPhotos.length >= maxPhotos) {
+      setErrorMsg(`Seu plano atual permite até ${maxPhotos} foto(s) por produto.`);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const maxDim = 800;
+        if (width > height && width > maxDim) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else if (height > maxDim) {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.75);
+        setSelectedPhotos((prev) => [...prev, compressedDataUrl]);
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+    // Reset file input
+    e.target.value = '';
+  };
+
   const handleAddPhotoPreset = (url: string) => {
     if (selectedPhotos.length >= maxPhotos) {
       setErrorMsg(`Seu plano atual permite até ${maxPhotos} foto(s) por produto.`);
@@ -180,10 +218,16 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
               ))}
 
               {selectedPhotos.length < maxPhotos && (
-                <div className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 shrink-0 bg-gray-50">
+                <label className="w-20 h-20 rounded-xl border-2 border-dashed border-emerald-400 hover:border-emerald-600 flex flex-col items-center justify-center text-emerald-700 shrink-0 bg-emerald-50/60 cursor-pointer transition">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoUpload}
+                    className="hidden"
+                  />
                   <Camera className="w-6 h-6 mb-0.5" />
-                  <span className="text-[10px]">Adicionar</span>
-                </div>
+                  <span className="text-[10px] font-bold">Tirar Foto</span>
+                </label>
               )}
             </div>
 

@@ -101,33 +101,44 @@ export const SellerDashboard: React.FC<SellerDashboardProps> = ({
           <div className="min-w-0">
             <h4 className="font-bold text-sm leading-tight">
               {sub.status === 'active'
-                ? `Plano ${sub.tier === 'pro' ? 'Pro' : 'Basic'} ativo`
-                : `Você está no plano Grátis (${sub.productLimit < 0 ? 'ilimitado' : `limite ${sub.productLimit}`})`}
+                ? `Capacidade: ${sub.productLimit} itens (${sub.packagesCount || 1} pacote(s) de 1.000)`
+                : `Você está na Cota Grátis (${sub.productLimit} itens)`}
             </h4>
             <p className="text-xs mt-0.5 opacity-90 leading-snug">
               {sub.status === 'active'
-                ? 'Você pode destacar 1 produto no feed público.'
+                ? sub.currentPeriodEnd
+                  ? `Válido até ${new Date(sub.currentPeriodEnd).toLocaleDateString()} (não recorrente). Precisa de mais? Adicione +1.000 itens por R$ 20.`
+                  : 'Pacote de capacidade ativo por 30 dias.'
                 : hiddenCount > 0
-                ? `Você tem ${hiddenCount} produto(s) oculto(s) por exceder o limite. Reduza o estoque ou faça upgrade.`
-                : 'Faça upgrade para liberar até 1000 produtos ou produtos ilimitados e fotos.'}
+                ? `Você tem ${hiddenCount} produto(s) oculto(s) por exceder o limite de 50. Adicione um pacote de +1.000 itens por R$ 20.`
+                : 'Recarregue +1.000 itens por R$ 20,00 válidos por 30 dias (não recorrente).'}
             </p>
           </div>
         </div>
 
         {sub.status === 'active' ? (
-          <button
-            onClick={onOpenFeaturedSelect}
-            className="shrink-0 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold rounded-lg transition shadow-sm cursor-pointer flex items-center gap-1"
-          >
-            <Star className="w-3.5 h-3.5" />
-            Destacar
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              onClick={() => onOpenUpgrade('basic')}
+              title="Adicionar mais 1000 itens"
+              className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition shadow-xs cursor-pointer"
+            >
+              +1.000 itens
+            </button>
+            <button
+              onClick={onOpenFeaturedSelect}
+              className="px-2.5 py-1.5 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-semibold rounded-lg transition shadow-xs cursor-pointer flex items-center gap-1"
+            >
+              <Star className="w-3 h-3 fill-amber-300 text-amber-300" />
+              Destacar
+            </button>
+          </div>
         ) : (
           <button
-            onClick={() => onOpenUpgrade(products.length >= 1000 ? 'pro' : 'basic')}
+            onClick={() => onOpenUpgrade('basic')}
             className="shrink-0 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg transition shadow-sm cursor-pointer"
           >
-            Upgrade
+            +1.000 itens (R$ 20)
           </button>
         )}
       </div>

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Product, User } from '../types';
 import { store } from '../services/store';
-import { Search, AlertTriangle, Star, ShoppingBag, MessageSquare } from 'lucide-react';
+import { formatDistance } from '../utils/distance';
+import { Search, AlertTriangle, Star, ShoppingBag, MessageSquare, Navigation } from 'lucide-react';
 
 interface MarketplaceScreenProps {
   user: User;
@@ -99,9 +100,15 @@ export const MarketplaceScreen: React.FC<MarketplaceScreenProps> = ({ user, onOp
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      Expires in {daysLeft} days • R$ {p.price.toFixed(2)}
-                    </p>
+                    <div className="flex items-center gap-1.5 flex-wrap text-xs text-gray-500 mt-0.5">
+                      <span>Expires in {daysLeft} days • R$ {p.price.toFixed(2)}</span>
+                      {p.distanceMeters !== undefined && (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1 py-0.2 rounded">
+                          <Navigation className="w-2.5 h-2.5 text-emerald-600" />
+                          {formatDistance(p.distanceMeters)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 

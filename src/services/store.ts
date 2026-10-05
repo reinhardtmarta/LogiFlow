@@ -4,278 +4,254 @@ import {
   SellerSubscription, 
   Tier, 
   TIER_CONFIGS, 
-  ChatMessage, 
-  StripeCheckoutSession 
+  ChatMessage 
 } from '../types';
+import { 
+  auth, 
+  db, 
+  docToProduct, 
+  handleFirestoreError, 
+  OperationType,
+  seedInitialProductsIfEmpty
+} from './firebase';
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  getDoc,
+  updateDoc, 
+  deleteDoc, 
+  onSnapshot,
+  query,
+  orderBy
+} from 'firebase/firestore';
+import { onAuthStateChanged, signOut as fbSignOut } from 'firebase/auth';
+import { 
+  calculateDistanceMeters, 
+  getCurrentUserCoordinates, 
+  getProductCoordinates 
+} from '../utils/distance';
+import { sanitizeText, validateNumber } from '../utils/security';
 
-// Seed users
-const INITIAL_USERS: User[] = [
+const INITIAL_SAMPLE_PRODUCTS: Product[] = [
   {
-    id: 'user_seller_1',
-    name: 'Fazenda Sol Verde Orgânicos',
-    email: 'contato@solverde.com',
-    phone: '(11) 98765-4321',
-    address: 'Sítio Boa Vista, Zona Rural, São Paulo - SP',
-    isSeller: true,
-    settings: {
-      language: 'pt',
-      interests: ['Frutas & Vegetais', 'Orgânicos', 'Sustentabilidade'],
-    },
-  },
-  {
-    id: 'user_consumer_1',
-    name: 'Maria Oliveira Silva',
-    email: 'maria.silva@email.com',
-    phone: '(11) 91234-5678',
-    address: 'Av. Paulista, 1500, Apto 42, São Paulo - SP',
-    isSeller: false,
-    settings: {
-      language: 'pt',
-      interests: ['Padaria', 'Laticínios', 'Resgate de Alimentos'],
-    },
-  },
-];
-
-// Helper to get relative future dates
-const futureDate = (days: number): string => {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return d.toISOString();
-};
-
-const pastDate = (days: number): string => {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return d.toISOString();
-};
-
-const INITIAL_PRODUCTS: Product[] = [
-  {
-    id: 'prod_1',
+    id: 'prod_sample_1',
     userId: 'user_seller_1',
-    name: 'Maçãs Gala Orgânicas (Caixa 3kg)',
+    name: 'Morangos Frescos Orgânicos (Caixa 500g)',
     quantity: 14,
-    price: 15.50,
-    expiryDate: futureDate(2), // 2 days -> URGENT RESCUE
-    condition: 'Ripe',
+    price: 7.5,
+    expiryDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+    condition: 'Ótimo',
     isProducer: true,
-    address: 'Sítio Boa Vista, Zona Rural, SP',
-    imagePaths: [
-      'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?auto=format&fit=crop&w=600&q=80',
-    ],
-    category: 'Fruits & Vegetables',
+    address: 'Horta Comunitária Paulista, SP',
+    imagePaths: ['https://images.unsplash.com/photo-1619566636858-adf3ef46400b?auto=format&fit=crop&w=600&q=80'],
+    category: 'Frutas & Vegetais',
     isRescue: true,
     isFeatured: true,
     hidden: false,
     wastePreventedKg: 7.0,
-    createdAt: pastDate(2),
+    createdAt: new Date().toISOString(),
   },
   {
-    id: 'prod_2',
+    id: 'prod_sample_2',
     userId: 'user_seller_1',
     name: 'Pães Artesanais de Fermentação Natural',
     quantity: 8,
-    price: 8.90,
-    expiryDate: futureDate(1), // 1 day -> URGENT RESCUE
-    condition: 'Bakery',
+    price: 8.9,
+    expiryDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString(),
+    condition: 'Padaria',
     isProducer: true,
     address: 'Padaria Artesanal Central, SP',
-    imagePaths: [
-      'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=600&q=80',
-    ],
-    category: 'Bakery',
+    imagePaths: ['https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=600&q=80'],
+    category: 'Padaria',
     isRescue: true,
     isFeatured: false,
     hidden: false,
     wastePreventedKg: 4.0,
-    createdAt: pastDate(1),
+    createdAt: new Date().toISOString(),
   },
   {
-    id: 'prod_3',
+    id: 'prod_sample_3',
     userId: 'user_seller_1',
     name: 'Leite Fresco Tipo A Pasteurizado 1L',
     quantity: 25,
-    price: 4.20,
-    expiryDate: futureDate(3), // 3 days -> URGENT RESCUE
-    condition: 'Fresh',
+    price: 4.2,
+    expiryDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+    condition: 'Fresco',
     isProducer: true,
     address: 'Laticínios da Serra, SP',
-    imagePaths: [
-      'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=600&q=80',
-    ],
-    category: 'Dairy',
+    imagePaths: ['https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=600&q=80'],
+    category: 'Laticínios',
     isRescue: true,
     isFeatured: false,
     hidden: false,
     wastePreventedKg: 12.5,
-    createdAt: pastDate(3),
+    createdAt: new Date().toISOString(),
   },
   {
-    id: 'prod_4',
+    id: 'prod_sample_4',
     userId: 'user_seller_1',
     name: 'Tomates Italianos Maduros (2kg)',
     quantity: 30,
-    price: 9.00,
-    expiryDate: futureDate(5),
-    condition: 'Ripe',
+    price: 9.0,
+    expiryDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+    condition: 'Maduro',
     isProducer: true,
     address: 'Sítio Boa Vista, Zona Rural, SP',
-    imagePaths: [
-      'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?auto=format&fit=crop&w=600&q=80',
-    ],
-    category: 'Fruits & Vegetables',
+    imagePaths: ['https://images.unsplash.com/photo-1592924357228-91a4daadcfea?auto=format&fit=crop&w=600&q=80'],
+    category: 'Frutas & Vegetais',
     isRescue: false,
     isFeatured: false,
     hidden: false,
     wastePreventedKg: 15.0,
-    createdAt: pastDate(4),
-  },
-  {
-    id: 'prod_5',
-    userId: 'user_seller_1',
-    name: 'Iogurte Natural Integral Artesanal (500g)',
-    quantity: 12,
-    price: 6.50,
-    expiryDate: futureDate(7),
-    condition: 'Fresh',
-    isProducer: true,
-    address: 'Laticínios da Serra, SP',
-    imagePaths: [
-      'https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=600&q=80',
-    ],
-    category: 'Dairy',
-    isRescue: false,
-    isFeatured: false,
-    hidden: false,
-    wastePreventedKg: 6.0,
-    createdAt: pastDate(5),
-  },
-  {
-    id: 'prod_6',
-    userId: 'user_seller_1',
-    name: 'Suco de Laranja Integral Prensado a Frio 1L',
-    quantity: 18,
-    price: 11.00,
-    expiryDate: futureDate(4),
-    condition: 'Fresh',
-    isProducer: true,
-    address: 'Pomar Verde, Campinas - SP',
-    imagePaths: [
-      'https://images.unsplash.com/photo-1613478223719-2ab802602423?auto=format&fit=crop&w=600&q=80',
-    ],
-    category: 'Beverages',
-    isRescue: false,
-    isFeatured: false,
-    hidden: false,
-    wastePreventedKg: 9.0,
-    createdAt: pastDate(2),
-  },
-  {
-    id: 'prod_7',
-    userId: 'user_seller_1',
-    name: 'Espinafre e Rúcula Hidropônicos (Maço)',
-    quantity: 20,
-    price: 3.50,
-    expiryDate: futureDate(2), // 2 days -> URGENT
-    condition: 'Fresh',
-    isProducer: true,
-    address: 'Horta Hidropônica Verde Viva, SP',
-    imagePaths: [
-      'https://images.unsplash.com/photo-1576045057995-568f588f82fb?auto=format&fit=crop&w=600&q=80',
-    ],
-    category: 'Fruits & Vegetables',
-    isRescue: true,
-    isFeatured: false,
-    hidden: false,
-    wastePreventedKg: 10.0,
-    createdAt: pastDate(1),
-  },
-];
-
-const INITIAL_MESSAGES: ChatMessage[] = [
-  {
-    id: 'msg_1',
-    senderId: 'user_consumer_1',
-    receiverId: 'user_seller_1',
-    message: 'Olá! As maçãs ainda estão disponíveis para retirada hoje?',
-    createdAt: pastDate(1),
-  },
-  {
-    id: 'msg_2',
-    senderId: 'user_seller_1',
-    receiverId: 'user_consumer_1',
-    message: 'Olá Maria! Sim, ainda temos 14 caixas. Se vier até as 18h, reservo para você!',
-    createdAt: pastDate(1),
+    createdAt: new Date().toISOString(),
   },
 ];
 
 class StoreService {
-  private users: User[] = [];
   private currentUser: User | null = null;
   private products: Product[] = [];
-  private messages: ChatMessage[] = [];
+  private messages: Record<string, ChatMessage[]> = {}; // chatId -> messages
   private subscriptions: Record<string, SellerSubscription> = {};
   private listeners: Set<() => void> = new Set();
+  public isFirestoreLive: boolean = false;
+  private activeChatSubscriptions: Map<string, () => void> = new Map();
 
   constructor() {
-    this.loadFromStorage();
+    // 1. Manter usuário persistido logado imediatamente
+    this.currentUser = this.loadPersistedUser();
+    // 2. Sem movimentações: amostragem estática/cacheada do feed sem acionar Firebase
+    this.products = this.loadPersistedProducts();
+    // 3. Listener passivo de autenticação da conta Google (mantém logado)
+    this.initAuthSync();
   }
 
-  private loadFromStorage() {
+  private loadPersistedUser(): User | null {
     try {
-      const storedUsers = localStorage.getItem('logiflow_users');
-      this.users = storedUsers ? JSON.parse(storedUsers) : INITIAL_USERS;
-
-      const storedCurrent = localStorage.getItem('logiflow_current_user');
-      if (storedCurrent) {
-        this.currentUser = JSON.parse(storedCurrent);
-      } else {
-        // Default to seller initially for demonstration, or consumer
-        this.currentUser = this.users[0] || null;
-      }
-
-      const storedProducts = localStorage.getItem('logiflow_products');
-      this.products = storedProducts ? JSON.parse(storedProducts) : INITIAL_PRODUCTS;
-
-      const storedMessages = localStorage.getItem('logiflow_messages');
-      this.messages = storedMessages ? JSON.parse(storedMessages) : INITIAL_MESSAGES;
-
-      const storedSubs = localStorage.getItem('logiflow_subscriptions');
-      if (storedSubs) {
-        this.subscriptions = JSON.parse(storedSubs);
-      } else {
-        // Default subscription for user_seller_1
-        this.subscriptions['user_seller_1'] = {
-          tier: 'free',
-          productLimit: 50,
-          status: 'none',
-          featuredProductId: 'prod_1',
-        };
-      }
-    } catch {
-      this.users = INITIAL_USERS;
-      this.currentUser = INITIAL_USERS[0];
-      this.products = INITIAL_PRODUCTS;
-      this.messages = INITIAL_MESSAGES;
-    }
+      const saved = localStorage.getItem('logiflow_active_user');
+      if (saved) return JSON.parse(saved);
+    } catch (_) {}
+    return null;
   }
 
-  private saveToStorage() {
+  private loadPersistedProducts(): Product[] {
     try {
-      localStorage.setItem('logiflow_users', JSON.stringify(this.users));
-      localStorage.setItem('logiflow_current_user', JSON.stringify(this.currentUser));
-      localStorage.setItem('logiflow_products', JSON.stringify(this.products));
-      localStorage.setItem('logiflow_messages', JSON.stringify(this.messages));
-      localStorage.setItem('logiflow_subscriptions', JSON.stringify(this.subscriptions));
-    } catch (e) {
-      console.warn('Storage save error:', e);
+      const saved = localStorage.getItem('logiflow_feed_products');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (_) {}
+    return [...INITIAL_SAMPLE_PRODUCTS];
+  }
+
+  private saveProductsLocally(products: Product[]) {
+    try {
+      localStorage.setItem('logiflow_feed_products', JSON.stringify(products));
+    } catch (_) {}
+  }
+
+  // Real-time Authentication Sync with Firebase Auth and Firestore Profiles
+  private initAuthSync() {
+    onAuthStateChanged(auth, async (fbUser) => {
+      if (fbUser) {
+        try {
+          const profileRef = doc(db, 'profiles', fbUser.uid);
+          const snap = await getDoc(profileRef);
+
+          if (snap.exists()) {
+            const data = snap.data();
+            this.currentUser = {
+              id: fbUser.uid,
+              name: data.name || fbUser.displayName || fbUser.email?.split('@')[0] || 'Usuário',
+              email: fbUser.email || '',
+              phone: data.phone || '',
+              address: data.address || '',
+              isSeller: Boolean(data.is_seller),
+              settings: { language: 'pt', interests: [] },
+            };
+            this.subscriptions[fbUser.uid] = {
+              tier: (data.plan as Tier) || 'free',
+              productLimit: data.product_limit !== undefined ? Number(data.product_limit) : 50,
+              status: data.subscription_status || 'none',
+              currentPeriodEnd: data.current_period_end,
+              featuredProductId: data.featured_product_id,
+            };
+          } else {
+            this.currentUser = {
+              id: fbUser.uid,
+              name: fbUser.displayName || fbUser.email?.split('@')[0] || 'Usuário Google',
+              email: fbUser.email || '',
+              phone: '',
+              address: 'São Paulo, SP',
+              isSeller: false,
+              settings: { language: 'pt', interests: [] },
+            };
+            this.subscriptions[fbUser.uid] = {
+              tier: 'free',
+              productLimit: 50,
+              status: 'none',
+            };
+          }
+        } catch (e) {
+          // Fallback persistente caso sem conexão
+          this.currentUser = {
+            id: fbUser.uid,
+            name: fbUser.displayName || 'Usuário LogiFlow',
+            email: fbUser.email || '',
+            phone: '',
+            address: 'Brasil',
+            isSeller: false,
+            settings: { language: 'pt', interests: [] },
+          };
+        }
+        // Salva para manter usuário 100% logado
+        try {
+          localStorage.setItem('logiflow_active_user', JSON.stringify(this.currentUser));
+        } catch (_) {}
+      } else {
+        // Apenas limpa se explicitamente deslogado
+        this.currentUser = this.loadPersistedUser();
+      }
+      this.notify();
+    });
+  }
+
+  // Real-time synchronization of Marketplace Products from Cloud Firestore
+  private initFirestoreProductsSync() {
+    try {
+      const productsCol = collection(db, 'products');
+      onSnapshot(
+        productsCol,
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const remoteProducts: Product[] = [];
+            snapshot.forEach((docSnap) => {
+              remoteProducts.push(docToProduct(docSnap.id, docSnap.data()));
+            });
+            this.products = remoteProducts;
+            this.isFirestoreLive = true;
+          } else {
+            seedInitialProductsIfEmpty();
+          }
+          this.notify();
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, 'products');
+          this.isFirestoreLive = false;
+          this.notify();
+        }
+      );
+    } catch (err) {
+      console.warn('Firestore onSnapshot init error:', err);
     }
-    this.notify();
   }
 
   public subscribe(listener: () => void) {
     this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
   }
 
   private notify() {
@@ -289,152 +265,161 @@ class StoreService {
 
   public setCurrentUser(user: User | null) {
     this.currentUser = user;
-    this.saveToStorage();
+    this.notify();
   }
 
-  public getAllUsers(): User[] {
-    return this.users;
-  }
-
-  public switchUser(userId: string) {
-    const user = this.users.find((u) => u.id === userId);
-    if (user) {
-      this.setCurrentUser(user);
+  public async updateUserProfile(updates: Partial<User>) {
+    if (!this.currentUser) return;
+    this.currentUser = { ...this.currentUser, ...updates };
+    try {
+      const profileRef = doc(db, 'profiles', this.currentUser.id);
+      await updateDoc(profileRef, {
+        name: this.currentUser.name,
+        phone: this.currentUser.phone,
+        address: this.currentUser.address,
+        is_seller: this.currentUser.isSeller,
+      });
+    } catch (e) {
+      console.warn('Profile update Firestore notice:', e);
     }
+    this.notify();
   }
 
-  public signIn(email: string): User {
-    const trimmed = email.trim().toLowerCase();
-    let user = this.users.find((u) => u.email.toLowerCase() === trimmed);
-    if (!user) {
-      // Create user on the fly if not found, to keep demo frictionless
-      user = {
-        id: 'user_' + Date.now(),
-        name: email.split('@')[0],
-        email: email.trim(),
-        phone: '(11) 99999-9999',
-        address: 'São Paulo, SP',
-        isSeller: false,
-        settings: { language: 'pt', interests: [] },
-      };
-      this.users.push(user);
-    }
-    this.setCurrentUser(user);
-    return user;
-  }
-
-  public signUp(data: {
-    name: string;
-    email: string;
-    password?: string;
-    phone: string;
-    address: string;
-    isSeller: boolean;
-  }): User {
-    const existing = this.users.find((u) => u.email.toLowerCase() === data.email.trim().toLowerCase());
-    if (existing) {
-      throw new Error('E-mail já cadastrado.');
-    }
-
-    const newUser: User = {
-      id: 'user_' + Date.now(),
-      name: data.name.trim(),
-      email: data.email.trim(),
-      phone: data.phone.trim(),
-      address: data.address.trim(),
-      isSeller: data.isSeller,
-      settings: {
-        language: 'pt',
-        interests: [],
-      },
-    };
-
-    this.users.push(newUser);
-
-    if (newUser.isSeller) {
-      this.subscriptions[newUser.id] = {
-        tier: 'free',
-        productLimit: 50,
-        status: 'none',
-      };
-    }
-
-    this.setCurrentUser(newUser);
-    this.saveToStorage();
-    return newUser;
-  }
-
-  public signOut() {
+  public async signOut() {
+    await fbSignOut(auth);
     this.currentUser = null;
-    this.saveToStorage();
+    this.notify();
   }
 
-  // ================= Subscriptions =================
+  /**
+   * Opção 1: Excluir apenas a conta no LogiFlow (Desvincula o perfil do app)
+   */
+  public async deleteUserAccount(userId: string) {
+    try {
+      await deleteDoc(doc(db, 'profiles', userId));
+    } catch (e) {
+      console.warn('Error deleting profile doc:', e);
+    }
+    delete this.subscriptions[userId];
+    await this.signOut();
+  }
+
+  /**
+   * Opção 2: Exclusão Total de Dados (Direito ao Esquecimento LGPD)
+   * Remove perfil, todos os produtos anunciados e limpa dados armazenados
+   */
+  public async deleteAllUserData(userId: string) {
+    // 1. Exclui permanentemente todos os produtos cadastrados pelo usuário no Firestore
+    const userProducts = this.products.filter((p) => p.userId === userId);
+    for (const p of userProducts) {
+      try {
+        await deleteDoc(doc(db, 'products', p.id));
+      } catch (e) {
+        console.warn('Error deleting product during data wipe:', e);
+      }
+    }
+    this.products = this.products.filter((p) => p.userId !== userId);
+
+    // 2. Exclui o documento de perfil no Firestore
+    try {
+      await deleteDoc(doc(db, 'profiles', userId));
+    } catch (e) {
+      console.warn('Error deleting profile doc during data wipe:', e);
+    }
+
+    delete this.subscriptions[userId];
+
+    // 3. Limpa qualquer cache local
+    try {
+      if (typeof localStorage !== 'undefined') localStorage.clear();
+      if (typeof sessionStorage !== 'undefined') sessionStorage.clear();
+    } catch (_) {}
+
+    // 4. Desconecta da autenticação
+    await this.signOut();
+  }
+
+  // ================= Subscriptions / Pacotes de Capacidade =================
   public getSubscription(userId: string): SellerSubscription {
-    if (!this.subscriptions[userId]) {
-      this.subscriptions[userId] = {
+    const sub = this.subscriptions[userId];
+    if (!sub) {
+      return {
         tier: 'free',
         productLimit: 50,
         status: 'none',
+        packagesCount: 0,
       };
     }
-    return this.subscriptions[userId];
-  }
 
-  public applySoftLock(userId: string, newLimit: number) {
-    if (newLimit < 0) {
-      // Unlimited - unhide all
-      this.products = this.products.map((p) => (p.userId === userId ? { ...p, hidden: false } : p));
-      this.saveToStorage();
-      return 0;
+    // Check 30-day package expiration
+    if (sub.status === 'active' && sub.currentPeriodEnd) {
+      if (new Date(sub.currentPeriodEnd).getTime() < Date.now()) {
+        sub.status = 'expired';
+        sub.productLimit = 50; // Retorna para a cota gratuita de 50
+        sub.packagesCount = 0;
+      }
     }
 
-    const userProducts = this.products
-      .filter((p) => p.userId === userId)
-      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-
-    const toHide = userProducts.slice(newLimit);
-    const hiddenIds = new Set(toHide.map((p) => p.id));
-
-    this.products = this.products.map((p) => {
-      if (p.userId === userId) {
-        return { ...p, hidden: hiddenIds.has(p.id) };
-      }
-      return p;
-    });
-
-    this.saveToStorage();
-    return toHide.length;
+    return sub;
   }
 
-  public createStripeCheckoutSession(tier: Tier, userId: string): StripeCheckoutSession {
-    const config = TIER_CONFIGS[tier];
-    const externalReference = `${userId}:${tier}:${new Date().toISOString().slice(0, 7)}`;
-    return {
-      sessionId: 'cs_test_' + Math.random().toString(36).substring(2),
-      checkoutUrl: `https://checkout.stripe.com/pay/cs_test_mock_${tier}`,
-      amountCents: config.amountCents,
-      externalReference,
-    };
-  }
-
-  public completePayment(userId: string, tier: Tier) {
-    const config = TIER_CONFIGS[tier];
+  public async completePayment(userId: string, tier: Tier = 'basic') {
+    const currentSub = this.getSubscription(userId);
     const now = new Date();
     const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
+    // Sucessivo/Cumulativo: se ativo e já tem 1000+, soma +1000 itens!
+    let newLimit = 1000;
+    const isCurrentlyActive = currentSub.status === 'active' && currentSub.currentPeriodEnd && new Date(currentSub.currentPeriodEnd).getTime() > now.getTime();
+
+    if (isCurrentlyActive && currentSub.productLimit >= 1000) {
+      newLimit = currentSub.productLimit + 1000;
+    } else {
+      newLimit = 1000;
+    }
+
+    const packagesCount = Math.floor(newLimit / 1000);
+
     this.subscriptions[userId] = {
-      tier,
-      productLimit: config.productLimit,
+      tier: 'basic',
+      productLimit: newLimit,
       status: 'active',
       currentPeriodEnd: periodEnd,
+      packagesCount,
     };
 
-    this.applySoftLock(userId, config.productLimit);
-    this.saveToStorage();
+    // Persist real package state directly in Cloud Firestore
+    try {
+      const profileRef = doc(db, 'profiles', userId);
+      await setDoc(profileRef, {
+        plan: 'basic',
+        product_limit: newLimit,
+        subscription_status: 'active',
+        current_period_end: periodEnd,
+        packages_count: packagesCount,
+        is_recurring: false, // Pagamento não é recorrente
+        updated_at: new Date().toISOString(),
+      }, { merge: true });
+
+      // Immutable Financial Audit Record in Firestore
+      const paymentAuditId = 'pay_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+      await setDoc(doc(db, 'payments', paymentAuditId), {
+        payment_id: paymentAuditId,
+        user_id: userId,
+        amount_reais: 20.00,
+        currency: 'BRL',
+        product_limit_granted: newLimit,
+        period_end: periodEnd,
+        created_at: now.toISOString(),
+      });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `profiles/${userId}`);
+    }
+
+    this.notify();
   }
 
-  public selectFeaturedProduct(userId: string, productId: string) {
+  public async selectFeaturedProduct(userId: string, productId: string) {
     const sub = this.getSubscription(userId);
     if (sub.status !== 'active') {
       throw new Error('Apenas assinantes ativos podem destacar produtos.');
@@ -442,7 +427,11 @@ class StoreService {
 
     this.products = this.products.map((p) => {
       if (p.userId === userId) {
-        return { ...p, isFeatured: p.id === productId };
+        const isFeat = p.id === productId;
+        try {
+          updateDoc(doc(db, 'products', p.id), { is_featured: isFeat });
+        } catch (_) {}
+        return { ...p, isFeatured: isFeat };
       }
       return p;
     });
@@ -452,18 +441,41 @@ class StoreService {
       featuredProductId: productId,
     };
 
-    this.saveToStorage();
+    try {
+      await updateDoc(doc(db, 'profiles', userId), {
+        featured_product_id: productId,
+      });
+    } catch (_) {}
+
+    this.notify();
   }
 
   // ================= Products =================
   public getProducts(includeHidden = false): Product[] {
+    const userLocation = getCurrentUserCoordinates();
+
     return this.products
       .filter((p) => includeHidden || !p.hidden)
+      .map((p, idx) => {
+        const coords = (p.latitude !== undefined && p.longitude !== undefined)
+          ? { latitude: p.latitude, longitude: p.longitude }
+          : getProductCoordinates(idx, p.address);
+        const dist = calculateDistanceMeters(
+          userLocation.latitude,
+          userLocation.longitude,
+          coords.latitude,
+          coords.longitude
+        );
+        return {
+          ...p,
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          distanceMeters: dist,
+        };
+      })
       .sort((a, b) => {
-        // Featured first
         if (a.isFeatured && !b.isFeatured) return -1;
         if (!a.isFeatured && b.isFeatured) return 1;
-        // Then by expiry date ascending
         return new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime();
       });
   }
@@ -474,7 +486,7 @@ class StoreService {
       .sort((a, b) => new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime());
   }
 
-  public addProduct(product: Omit<Product, 'id' | 'createdAt' | 'wastePreventedKg' | 'hidden'>): Product {
+  public async addProduct(product: Omit<Product, 'id' | 'createdAt' | 'wastePreventedKg' | 'hidden'>): Promise<Product> {
     const sub = this.getSubscription(product.userId);
     const userProducts = this.products.filter((p) => p.userId === product.userId);
 
@@ -482,59 +494,168 @@ class StoreService {
       throw new Error(`ProductLimitReached: Seu plano atual permite ${sub.productLimit} produtos.`);
     }
 
+    const safeName = sanitizeText(product.name, 120);
+    const safeAddress = sanitizeText(product.address, 200);
+    const safeCategory = sanitizeText(product.category, 60);
+    const safePrice = Math.max(0, Number(product.price) || 0);
+    const safeQty = Math.max(0, Math.min(100000, Math.floor(Number(product.quantity) || 1)));
+
+    const prodId = 'prod_' + Date.now();
     const newProduct: Product = {
       ...product,
-      id: 'prod_' + Date.now(),
+      name: safeName,
+      address: safeAddress,
+      category: safeCategory,
+      price: safePrice,
+      quantity: safeQty,
+      id: prodId,
       createdAt: new Date().toISOString(),
-      wastePreventedKg: (product.quantity || 1) * 0.5,
+      wastePreventedKg: safeQty * 0.5,
       hidden: false,
     };
 
+    // Optimistic update
     this.products.unshift(newProduct);
-    this.saveToStorage();
+    this.saveProductsLocally(this.products);
+    this.notify();
+
+    // Persist to Cloud Firestore in real time
+    try {
+      await setDoc(doc(db, 'products', prodId), {
+        seller_id: newProduct.userId,
+        name: newProduct.name,
+        quantity: newProduct.quantity,
+        price: newProduct.price,
+        expiry_date: newProduct.expiryDate,
+        condition: newProduct.condition,
+        is_producer: newProduct.isProducer,
+        address: newProduct.address,
+        latitude: newProduct.latitude,
+        longitude: newProduct.longitude,
+        image_paths: newProduct.imagePaths,
+        category: newProduct.category,
+        is_rescue: newProduct.isRescue,
+        is_featured: newProduct.isFeatured,
+        hidden: newProduct.hidden,
+        waste_prevented_kg: newProduct.wastePreventedKg,
+        created_at: newProduct.createdAt,
+      });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.CREATE, `products/${prodId}`);
+    }
+
     return newProduct;
   }
 
-  public updateProductStock(productId: string, newQuantity: number) {
+  public async updateProductStock(productId: string, newQuantity: number) {
     if (newQuantity < 0) throw new Error('Quantidade não pode ser negativa.');
     this.products = this.products.map((p) =>
       p.id === productId ? { ...p, quantity: newQuantity } : p
     );
-    this.saveToStorage();
+    this.notify();
+
+    // Sync to Cloud Firestore
+    try {
+      await updateDoc(doc(db, 'products', productId), {
+        quantity: newQuantity,
+      });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `products/${productId}`);
+    }
   }
 
-  public deleteProduct(productId: string) {
+  public async deleteProduct(productId: string) {
     this.products = this.products.filter((p) => p.id !== productId);
-    this.saveToStorage();
+    this.notify();
+
+    // Delete in Cloud Firestore
+    try {
+      await deleteDoc(doc(db, 'products', productId));
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, `products/${productId}`);
+    }
   }
 
-  // ================= Chat =================
+  // ================= Real-Time Firestore Chat =================
+  private getChatKey(userA: string, userB: string): string {
+    return [userA, userB].sort().join('_');
+  }
+
+  public subscribeToChat(userA: string, userB: string, onUpdate: (msgs: ChatMessage[]) => void) {
+    const chatKey = this.getChatKey(userA, userB);
+    const messagesCol = collection(db, 'chats', chatKey, 'messages');
+    const q = query(messagesCol, orderBy('created_at', 'asc'));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const msgs: ChatMessage[] = [];
+      snapshot.forEach((d) => {
+        const data = d.data();
+        msgs.push({
+          id: d.id,
+          senderId: data.sender_id || data.senderId,
+          receiverId: data.receiver_id || data.receiverId,
+          message: data.message || '',
+          createdAt: data.created_at || data.createdAt || new Date().toISOString(),
+        });
+      });
+      this.messages[chatKey] = msgs;
+      onUpdate(msgs);
+    }, (err) => {
+      handleFirestoreError(err, OperationType.GET, `chats/${chatKey}/messages`);
+    });
+
+    return unsubscribe;
+  }
+
   public getChatMessages(userA: string, userB: string): ChatMessage[] {
-    return this.messages.filter(
-      (m) =>
-        (m.senderId === userA && m.receiverId === userB) ||
-        (m.senderId === userB && m.receiverId === userA)
-    ).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    const chatKey = this.getChatKey(userA, userB);
+    return this.messages[chatKey] || [];
   }
 
-  public sendMessage(senderId: string, receiverId: string, message: string): ChatMessage {
-    const trimmed = message.trim();
-    if (!trimmed) throw new Error('Mensagem vazia.');
+  public async sendMessage(senderId: string, receiverId: string, message: string): Promise<ChatMessage> {
+    const trimmed = sanitizeText(message, 1500);
+    if (!trimmed) throw new Error('Mensagem vazia ou inválida.');
+
+    const chatKey = this.getChatKey(senderId, receiverId);
+    const msgId = 'msg_' + Date.now();
 
     const newMsg: ChatMessage = {
-      id: 'msg_' + Date.now(),
+      id: msgId,
       senderId,
       receiverId,
       message: trimmed,
       createdAt: new Date().toISOString(),
     };
 
-    this.messages.push(newMsg);
-    this.saveToStorage();
+    if (!this.messages[chatKey]) {
+      this.messages[chatKey] = [];
+    }
+    this.messages[chatKey].push(newMsg);
+    this.notify();
+
+    // Persist in Cloud Firestore subcollection
+    try {
+      await setDoc(doc(db, 'chats', chatKey, 'messages', msgId), {
+        sender_id: senderId,
+        receiver_id: receiverId,
+        message: trimmed,
+        created_at: newMsg.createdAt,
+      });
+
+      // Update chat meta
+      await setDoc(doc(db, 'chats', chatKey), {
+        participants: [senderId, receiverId],
+        last_message: trimmed,
+        last_update: newMsg.createdAt,
+      }, { merge: true });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.CREATE, `chats/${chatKey}/messages/${msgId}`);
+    }
+
     return newMsg;
   }
 
-  // ================= AI Insights =================
+  // ================= Smart Insight =================
   public generateSmartInsight(products: Product[]): string {
     const expiringSoon = products.filter((p) => {
       const days = Math.ceil((new Date(p.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
@@ -544,15 +665,15 @@ class StoreService {
     if (expiringSoon.length > 0) {
       const sample = expiringSoon[0];
       const days = Math.max(0, Math.ceil((new Date(sample.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
-      return `Alerta de Resgate: ${sample.name} vence em ${days === 0 ? 'hoje' : days + ' dia(s)'}! Excelente oportunidade para consumo consciente e desconto especial.`;
+      return `Alerta de Resgate em Tempo Real: ${sample.name} vence em ${days === 0 ? 'hoje' : days + ' dia(s)'}! Resgate prioritário no feed.`;
     }
 
     const featured = products.find((p) => p.isFeatured);
     if (featured) {
-      return `Destaque do Produtor: Confira ${featured.name} fresco da ${featured.address.split(',')[0]}!`;
+      return `Destaque do Produtor: Confira ${featured.name} fresco sincronizado direto do produtor!`;
     }
 
-    return 'Dica sustentável: Adquirir produtos próximos do vencimento reduz a pegada de carbono e combate o desperdício alimentar.';
+    return 'Dica sustentável: Adquirir produtos em resgate reduz o desperdício alimentar e apoia os agricultores locais.';
   }
 }
 

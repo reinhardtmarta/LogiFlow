@@ -106,11 +106,18 @@ export const StockScreen: React.FC<StockScreenProps> = ({ user, onBack }) => {
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <h4 className="font-bold text-gray-900 text-sm truncate">
-                      {item.name}
-                    </h4>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h4 className="font-bold text-gray-900 text-sm truncate">
+                        {item.name}
+                      </h4>
+                      {item.quantity === 0 && (
+                        <span className="text-[10px] font-bold bg-red-100 text-red-700 px-1.5 py-0.2 rounded">
+                          Esgotado
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      Status: <span className="font-semibold">{item.condition}</span>
+                      Status: <span className="font-semibold">{item.condition}</span> • R$ {item.price.toFixed(2)}
                     </p>
                     <p
                       className={`text-xs mt-0.5 font-medium ${

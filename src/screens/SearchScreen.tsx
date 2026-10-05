@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Product } from '../types';
 import { store } from '../services/store';
-import { Search, X, MessageSquare, PackageSearch, Tag } from 'lucide-react';
+import { formatDistance } from '../utils/distance';
+import { Search, X, MessageSquare, PackageSearch, Tag, Navigation } from 'lucide-react';
 
 interface SearchScreenProps {
   onOpenChat: (receiverId: string, receiverName: string) => void;
@@ -117,9 +118,15 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onOpenChat }) => {
                   <h4 className="font-bold text-gray-900 text-sm truncate group-hover:text-emerald-700 transition">
                     {product.name}
                   </h4>
-                  <p className="text-xs text-gray-500 mt-0.5 truncate">
-                    {product.category} • {product.address}
-                  </p>
+                  <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-0.5 truncate">
+                    <span className="truncate">{product.category} • {product.address}</span>
+                    {product.distanceMeters !== undefined && (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1 py-0.2 rounded shrink-0">
+                        <Navigation className="w-2.5 h-2.5 text-emerald-600" />
+                        {formatDistance(product.distanceMeters)}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 

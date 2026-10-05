@@ -1,0 +1,68 @@
+{
+  "entities": {
+    "Profile": {
+      "title": "Profile",
+      "description": "User profile with role and settings",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "is_seller": { "type": "boolean" },
+        "product_limit": { "type": "number" },
+        "subscription_status": { "type": "string" },
+        "plan": { "type": "string" }
+      },
+      "required": ["email", "name", "is_seller"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Rescue food product listing",
+      "type": "object",
+      "properties": {
+        "seller_id": { "type": "string" },
+        "name": { "type": "string" },
+        "quantity": { "type": "number" },
+        "price": { "type": "number" },
+        "expiry_date": { "type": "string" },
+        "condition": { "type": "string" },
+        "is_producer": { "type": "boolean" },
+        "address": { "type": "string" },
+        "category": { "type": "string" },
+        "is_rescue": { "type": "boolean" },
+        "is_featured": { "type": "boolean" },
+        "hidden": { "type": "boolean" },
+        "waste_prevented_kg": { "type": "number" }
+      },
+      "required": ["seller_id", "name", "quantity", "price", "expiry_date", "category"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Direct message between buyer and seller",
+      "type": "object",
+      "properties": {
+        "sender_id": { "type": "string" },
+        "receiver_id": { "type": "string" },
+        "message": { "type": "string" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["sender_id", "receiver_id", "message"]
+    }
+  },
+  "firestore": {
+    "/profiles/{userId}": {
+      "schema": { "$ref": "#/entities/Profile" },
+      "description": "User profile document"
+    },
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Public products available in the rescue food marketplace"
+    },
+    "/chats/{chatId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "Direct messages between users"
+    }
+  }
+}

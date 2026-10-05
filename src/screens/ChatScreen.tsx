@@ -1,7 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User, ChatMessage } from '../types';
 import { store } from '../services/store';
-import { ArrowLeft, Send, MessageSquare } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
+import { 
+  ArrowLeft, 
+  Send, 
+  MessageSquare, 
+  ShieldAlert, 
+  AlertTriangle,
+  Info
+} from 'lucide-react';
 
 interface ChatScreenProps {
   currentUser: User;
@@ -16,44 +24,47 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   receiverName,
   onBack,
 }) => {
+  const { t } = useLanguage();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
+  const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Subscribe to real-time Cloud Firestore messages stream
   useEffect(() => {
-    const update = () => {
-      setMessages(store.getChatMessages(currentUser.id, receiverId));
+    const unsubscribe = store.subscribeToChat(currentUser.id, receiverId, (newMsgs) => {
+      setMessages(newMsgs);
+    });
+
+    return () => {
+      unsubscribe();
     };
-    update();
-    return store.subscribe(update);
   }, [currentUser.id, receiverId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim()) return;
+    if (!inputText.trim() || isSending) return;
 
-    store.sendMessage(currentUser.id, receiverId, inputText.trim());
+    const text = inputText.trim();
     setInputText('');
+    setIsSending(true);
 
-    // If talking to a seller or simulation, generate an automated friendly response if first message
-    if (messages.length === 0) {
-      setTimeout(() => {
-        store.sendMessage(
-          receiverId,
-          currentUser.id,
-          'Olá! Recebemos sua mensagem sobre os alimentos. Podemos combinar a retirada hoje mesmo até às 18h no nosso endereço!'
-        );
-      }, 1000);
+    try {
+      await store.sendMessage(currentUser.id, receiverId, text);
+    } catch (err) {
+      console.warn('Send message error:', err);
+    } finally {
+      setIsSending(false);
     }
   };
 
   return (
     <div className="fixed inset-0 bg-gray-50 flex flex-col z-40 max-w-xl mx-auto shadow-2xl">
-      {/* Header */}
+      {/* Real-time Header */}
       <div className="bg-emerald-700 text-white p-3.5 flex items-center gap-3 shrink-0 shadow-sm">
         <button
           onClick={onBack}
@@ -65,41 +76,72 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center font-bold text-xs">
             {receiverName.charAt(0)}
           </div>
-          <div className="min-w-0">
-            <h3 className="font-bold text-sm truncate">Chat with {receiverName}</h3>
-            <p className="text-[11px] text-emerald-200">Online • LogiFlow Direct</p>
+          <div className="min-w-0 flex-1">
+            <h3 className="font-bold text-sm truncate flex items-center gap-1.5">
+              <span>{receiverName}</span>
+            </h3>
+            <p className="text-[11px] text-emerald-200 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
+              <span>Conexão Realtime Firestore</span>
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Messages List matching Flutter */}
+      {/* Termo de Responsabilidade e Segurança do Chat */}
+      <div className="bg-amber-50 border-b border-amber-200/90 px-3.5 py-2.5 text-xs text-amber-950 flex items-start gap-2.5 shadow-xs">
+        <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+        <div className="flex-1 leading-snug">
+          <p className="font-bold text-amber-900 text-[11px] uppercase tracking-wide flex items-center gap-1">
+            <span>{t('chatDisclaimerHeader')}</span>
+          </p>
+          <p className="text-[11px] text-amber-800/95 mt-0.5">
+            {t('chatDisclaimerText')}
+          </p>
+          <div className="mt-1.5 text-[11px] text-amber-900/90 bg-amber-100/70 p-2 rounded-lg border border-amber-200/60 space-y-1">
+            <p>
+              🔒 {t('chatWarningData')}
+            </p>
+            <p>
+              🤝 {t('chatWarningPayment')}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Messages List from Cloud Firestore */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.length === 0 ? (
-          <div className="text-center py-20 text-gray-400 text-xs">
+          <div className="text-center py-16 text-gray-400 text-xs">
             <MessageSquare className="w-10 h-10 mx-auto text-gray-300 mb-2" />
-            <p className="font-medium text-gray-500">No messages yet.</p>
-            <p>Start the conversation to arrange food rescue pickup!</p>
+            <p className="font-medium text-gray-500">Nenhuma mensagem trocada ainda.</p>
+            <p className="mt-1 max-w-xs mx-auto">
+              Converse diretamente com o produtor para combinar horários, valores e a melhor forma de retirada do alimento.
+            </p>
           </div>
         ) : (
           messages.map((msg) => {
             const isMe = msg.senderId === currentUser.id;
+            const time = new Date(msg.createdAt).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            });
+
             return (
               <div
                 key={msg.id}
                 className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
               >
                 <div
-                  className={`max-w-[78%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-xs ${
+                  className={`max-w-[80%] rounded-2xl px-4 py-2.5 shadow-xs text-xs break-words whitespace-pre-wrap ${
                     isMe
                       ? 'bg-emerald-600 text-white rounded-br-xs'
-                      : 'bg-white text-gray-900 border border-gray-200 rounded-bl-xs'
+                      : 'bg-white text-gray-800 border border-gray-200 rounded-bl-xs'
                   }`}
                 >
-                  <p>{msg.message}</p>
+                  {msg.message}
                 </div>
-                <span className="text-[10px] text-gray-400 mt-1 px-1">
-                  {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
+                <span className="text-[10px] text-gray-400 mt-0.5 px-1">{time}</span>
               </div>
             );
           })
@@ -107,24 +149,21 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Send Message Bar */}
-      <form
-        onSubmit={handleSendMessage}
-        className="bg-white border-t border-gray-200 p-3 flex items-center gap-2 shrink-0 shadow-lg"
-      >
+      {/* Input Bar */}
+      <form onSubmit={handleSendMessage} className="p-3 bg-white border-t border-gray-200 flex items-center gap-2">
         <input
           type="text"
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
-          placeholder="Type a message..."
-          className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
+          placeholder={t('sendMessagePlaceholder')}
+          className="flex-1 bg-gray-100 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
         />
         <button
           type="submit"
-          disabled={!inputText.trim()}
-          className="p-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full transition shadow-xs cursor-pointer disabled:opacity-40"
+          disabled={!inputText.trim() || isSending}
+          className="p-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition cursor-pointer disabled:opacity-50"
         >
-          <Send className="w-5 h-5" />
+          <Send className="w-4 h-4" />
         </button>
       </form>
     </div>

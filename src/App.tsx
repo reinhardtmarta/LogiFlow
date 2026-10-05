@@ -12,8 +12,9 @@ import { StockScreen } from './screens/StockScreen';
 import { UpgradeScreen } from './screens/UpgradeScreen';
 import { SelectFeaturedScreen } from './screens/SelectFeaturedScreen';
 import { ChatScreen } from './screens/ChatScreen';
-import { AiAssistantScreen } from './screens/AiAssistantScreen';
+import { FeedBotScreen } from './screens/FeedBotScreen';
 import { AuthScreen } from './screens/AuthScreen';
+import { UserProfileScreen } from './screens/UserProfileScreen';
 
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(store.getCurrentUser());
@@ -57,6 +58,26 @@ export const App: React.FC = () => {
     }
   }, []);
 
+  // Handle Mercado Pago redirect callback
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const isPaymentApproved =
+      params.get('payment') === 'success' ||
+      params.get('collection_status') === 'approved' ||
+      params.get('status') === 'approved';
+
+    if (isPaymentApproved) {
+      if (currentUser) {
+        store.completePayment(currentUser.id, 'basic');
+        showToast('🎉 Pagamento Mercado Pago aprovado! Plano Basic ativado.');
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } else {
+        showToast('🎉 Pagamento recebido! Entre na sua conta para vincular o plano.');
+        setShowAuthModal(true);
+      }
+    }
+  }, [currentUser]);
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => {
@@ -94,6 +115,17 @@ export const App: React.FC = () => {
     );
   }
 
+  const guestUser: User = {
+    id: 'guest',
+    name: 'Visitante',
+    email: '',
+    phone: '',
+    address: 'Brasil',
+    isSeller: false,
+    settings: { language: 'pt', interests: [] },
+  };
+  const activeUser = currentUser || guestUser;
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col antialiased select-none sm:select-auto">
       {/* Top Header */}
@@ -107,7 +139,7 @@ export const App: React.FC = () => {
       <main className="flex-1 w-full">
         {currentTab === 0 && (
           <GeneralFeedScreen
-            user={currentUser}
+            user={activeUser}
             onOpenChat={handleOpenChat}
             aiInsightMessage={aiInsightMessage}
             onDismissAiInsight={() => setAiInsightMessage(null)}
@@ -117,7 +149,7 @@ export const App: React.FC = () => {
         {currentTab === 1 && <SearchScreen onOpenChat={handleOpenChat} />}
 
         {currentTab === 2 &&
-          (currentUser.isSeller ? (
+          (currentUser?.isSeller ? (
             <SellerDashboard
               user={currentUser}
               onOpenAddProduct={() => setShowAddProduct(true)}
@@ -126,11 +158,19 @@ export const App: React.FC = () => {
               onOpenFeaturedSelect={() => setShowFeaturedSelect(true)}
             />
           ) : (
-            <MarketplaceScreen user={currentUser} onOpenChat={handleOpenChat} />
+            <MarketplaceScreen user={activeUser} onOpenChat={handleOpenChat} />
           ))}
 
         {currentTab === 3 && (
-          <AiAssistantScreen user={currentUser} onOpenChat={handleOpenChat} />
+          <FeedBotScreen user={activeUser} onOpenChat={handleOpenChat} />
+        )}
+
+        {currentTab === 4 && (
+          <UserProfileScreen
+            user={currentUser}
+            onOpenAuth={() => setShowAuthModal(true)}
+            onOpenUpgrade={() => setShowUpgrade({ open: true, tier: 'basic' })}
+          />
         )}
       </main>
 
@@ -144,11 +184,11 @@ export const App: React.FC = () => {
           setActiveChat({ open: false, receiverId: '', receiverName: '' });
           setCurrentTab(idx);
         }}
-        isSeller={currentUser.isSeller}
+        isSeller={currentUser?.isSeller ?? false}
       />
 
       {/* Modals & Sub-Screens */}
-      {showAddProduct && (
+      {showAddProduct && currentUser && (
         <AddProductModal
           user={currentUser}
           onClose={() => setShowAddProduct(false)}
@@ -159,7 +199,7 @@ export const App: React.FC = () => {
         />
       )}
 
-      {showStockScreen && (
+      {showStockScreen && currentUser && (
         <div className="fixed inset-0 bg-slate-50 z-30 overflow-y-auto">
           <StockScreen
             user={currentUser}
@@ -168,7 +208,7 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {showUpgrade.open && (
+      {showUpgrade.open && currentUser && (
         <div className="fixed inset-0 bg-slate-50 z-30 overflow-y-auto">
           <UpgradeScreen
             user={currentUser}
@@ -182,7 +222,7 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {showFeaturedSelect && (
+      {showFeaturedSelect && currentUser && (
         <div className="fixed inset-0 bg-slate-50 z-30 overflow-y-auto">
           <SelectFeaturedScreen
             user={currentUser}
@@ -195,7 +235,7 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {activeChat.open && (
+      {activeChat.open && currentUser && (
         <ChatScreen
           currentUser={currentUser}
           receiverId={activeChat.receiverId}

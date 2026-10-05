@@ -13,29 +13,29 @@ export interface TierConfig {
 export const TIER_CONFIGS: Record<Tier, TierConfig> = {
   free: {
     id: 'free',
-    label: 'Grátis',
+    label: 'Plano Grátis',
     amountCents: 0,
     priceLabel: 'R$ 0,00',
     productLimit: 50,
-    limitLabel: 'Até 50 produtos',
+    limitLabel: 'Até 50 produtos (grátis)',
     maxPhotos: 1,
   },
   basic: {
     id: 'basic',
-    label: 'Basic (até 1000 produtos)',
-    amountCents: 1000,
-    priceLabel: 'R$ 10,00',
+    label: 'Pacote +1.000 itens (30 dias)',
+    amountCents: 2000,
+    priceLabel: 'R$ 20,00',
     productLimit: 1000,
-    limitLabel: 'Até 1000 produtos',
+    limitLabel: '+1.000 itens por 30 dias (não recorrente)',
     maxPhotos: 5,
   },
   pro: {
     id: 'pro',
-    label: 'Pro (acima de 1000 produtos)',
-    amountCents: 10000,
-    priceLabel: 'R$ 100,00',
-    productLimit: -1,
-    limitLabel: 'Produtos ilimitados',
+    label: 'Pacote Extra (+1.000 itens)',
+    amountCents: 2000,
+    priceLabel: 'R$ 20,00',
+    productLimit: 1000,
+    limitLabel: 'Adicione mais 1.000 itens por R$ 20',
     maxPhotos: 5,
   },
 };
@@ -48,6 +48,7 @@ export interface SellerSubscription {
   status: SubscriptionStatus;
   currentPeriodEnd?: string;
   featuredProductId?: string;
+  packagesCount?: number;
 }
 
 export interface UserSettings {
@@ -76,6 +77,9 @@ export interface Product {
   condition: string;
   isProducer: boolean;
   address: string;
+  latitude?: number;
+  longitude?: number;
+  distanceMeters?: number;
   imagePath?: string;
   imagePaths: string[];
   category: string;

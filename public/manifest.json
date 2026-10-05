@@ -1,0 +1,21 @@
+{
+  "short_name": "LogiFlow",
+  "name": "LogiFlow - Marketplace de Resgate Alimentar",
+  "icons": [
+    {
+      "src": "/assets/images/logiflowlogo.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/assets/images/logiflowlogo.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#ffffff",
+  "theme_color": "#047857",
+  "display": "standalone",
+  "orientation": "portrait"
+}

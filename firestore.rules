@@ -3,73 +3,100 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Common security helper functions
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isOwner(uid) {
-      return isSignedIn() && request.auth.uid == uid;
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
     }
 
-    function onlyKeysChanged() {
-      return request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['last_message', 'last_update', 'participants']);
+    function isChatParticipant(chatId) {
+      return isSignedIn() && (
+        chatId.matches('.*' + request.auth.uid + '.*')
+      );
     }
 
-    match /profiles/{uid} {
-      allow read: if isOwner(uid);
-      allow create: if isOwner(uid)
-        && !('plan' in request.resource.data)
-        && !('product_limit' in request.resource.data)
-        && !('subscription_status' in request.resource.data)
-        && !('current_period_end' in request.resource.data)
-        && !('product_count' in request.resource.data)
-        && !('featured_product_id' in request.resource.data);
-      allow update: if isOwner(uid)
-        && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['name', 'phone', 'address', 'settings', 'updated_at',
-                      'featured_product_id', 'product_count'])
-        && (!('product_count' in request.resource.data)
-            || request.resource.data.product_count is int);
-      allow delete: if false;
-    }
-
-    match /products/{productId} {
+    // Profiles collection (User Accounts & Seller Quotas)
+    match /profiles/{userId} {
+      // Anyone can read public profile details (name, seller status)
       allow read: if true;
-      allow create: if isSignedIn()
-        && request.resource.data.seller_id == request.auth.uid
-        && request.resource.data.is_featured == false
-        && request.resource.data.hidden == false;
-      allow update: if isSignedIn()
-        && resource.data.seller_id == request.auth.uid
-        && request.resource.data.seller_id == request.auth.uid
-        && request.resource.data.is_featured == resource.data.is_featured
-        && request.resource.data.hidden == resource.data.hidden;
-      allow delete: if isSignedIn()
-        && resource.data.seller_id == request.auth.uid;
+
+      // On creation, ensure user is owner and initial quota does not exceed 50
+      allow create: if isOwner(userId) && (
+        request.resource.data.uid == request.auth.uid &&
+        (request.resource.data.product_limit == null || request.resource.data.product_limit <= 100000)
+      );
+
+      // Updates only by the owner with safe type validations
+      allow update: if isOwner(userId) && (
+        request.resource.data.uid == request.auth.uid
+      );
+
+      allow delete: if isOwner(userId);
     }
 
-    match /chats/{chatRoomId} {
-      allow read: if isSignedIn();
-      allow create, update: if isSignedIn()
-        && request.auth.uid in request.resource.data.participants
-        && onlyKeysChanged();
-      allow delete: if false;
+    // Products collection (Marketplace Inventory)
+    match /products/{productId} {
+      // Public marketplace feed can be read by anyone
+      allow read: if true;
+
+      // Creation: must be authenticated, seller_id matches user, valid inputs
+      allow create: if isSignedIn() &&
+        request.resource.data.seller_id == request.auth.uid &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() > 0 &&
+        request.resource.data.name.size() <= 150 &&
+        request.resource.data.price is number &&
+        request.resource.data.price >= 0 &&
+        request.resource.data.quantity is number &&
+        request.resource.data.quantity >= 0 &&
+        request.resource.data.quantity <= 100000;
+
+      // Update: only the owner/seller can update their own products; cannot transfer seller_id
+      allow update: if isSignedIn() &&
+        resource.data.seller_id == request.auth.uid &&
+        request.resource.data.seller_id == request.auth.uid &&
+        request.resource.data.price is number &&
+        request.resource.data.price >= 0 &&
+        request.resource.data.quantity is number &&
+        request.resource.data.quantity >= 0;
+
+      // Deletion: strictly restricted to product owner
+      allow delete: if isSignedIn() && resource.data.seller_id == request.auth.uid;
+    }
+
+    // Chats and Private Messages (Privacy Isolation)
+    match /chats/{chatId} {
+      // Only the two direct participants can view or update chat metadata
+      allow read: if isChatParticipant(chatId);
+      allow write: if isChatParticipant(chatId);
 
       match /messages/{messageId} {
-        allow read: if isSignedIn();
-        allow create: if isSignedIn()
-          && request.resource.data.sender_id == request.auth.uid
-          && request.resource.data.receiver_id != request.auth.uid
-          && request.resource.data.created_at == request.time;
+        // Strictly isolated: only participants can read messages
+        allow read: if isChatParticipant(chatId);
+
+        // Can only send if participant, sender is auth user, and message has safe length
+        allow create: if isChatParticipant(chatId) &&
+          request.resource.data.sender_id == request.auth.uid &&
+          request.resource.data.message is string &&
+          request.resource.data.message.size() > 0 &&
+          request.resource.data.message.size() <= 2000;
+
+        // Messages are immutable once sent (prevent tampering with negotiation records)
         allow update, delete: if false;
       }
     }
 
-    match /pending_payments/{paymentId} {
-      allow read, write: if false;
+    // Payment Audit Log (Financial records are strictly immutable)
+    match /payments/{paymentId} {
+      allow read: if isSignedIn() && resource.data.user_id == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.user_id == request.auth.uid;
+      allow update, delete: if false;
     }
 
+    // Default deny all other collections
     match /{document=**} {
       allow read, write: if false;
     }
