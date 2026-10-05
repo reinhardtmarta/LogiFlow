@@ -24,6 +24,8 @@ export const Header: React.FC<HeaderProps> = ({ user, onRefreshAi, onOpenAuth })
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
+  const [deletionToast, setDeletionToast] = useState<string | null>(null);
+
   const toggleSellerMode = async () => {
     if (!user) return;
     await store.updateUserProfile({ isSeller: !user.isSeller });
@@ -148,9 +150,18 @@ export const Header: React.FC<HeaderProps> = ({ user, onRefreshAi, onOpenAuth })
           user={user}
           onClose={() => setShowDeleteModal(false)}
           onDeleted={(msg) => {
-            alert(msg);
+            setDeletionToast(msg);
+            setTimeout(() => setDeletionToast(null), 5000);
           }}
         />
+      )}
+
+      {/* Clean Notification Toast */}
+      {deletionToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white px-5 py-3 rounded-2xl shadow-2xl text-xs font-semibold flex items-center gap-2 border border-gray-700 animate-in fade-in slide-in-from-bottom-3 duration-200">
+          <span>✓</span>
+          <span>{deletionToast}</span>
+        </div>
       )}
     </>
   );

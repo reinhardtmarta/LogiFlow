@@ -25,9 +25,12 @@ export const AccountDeletionModal: React.FC<AccountDeletionModalProps> = ({
   const [confirmStep, setConfirmStep] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   const handleExecuteDeletion = async () => {
     if (!selectedAction) return;
     setIsDeleting(true);
+    setErrorMessage(null);
 
     try {
       if (selectedAction === 'account_only') {
@@ -39,7 +42,7 @@ export const AccountDeletionModal: React.FC<AccountDeletionModalProps> = ({
       }
       onClose();
     } catch (err: any) {
-      alert('Erro ao processar exclusão: ' + (err.message || 'Tente novamente.'));
+      setErrorMessage(err.message || 'Erro ao processar exclusão. Tente novamente.');
       setIsDeleting(false);
     }
   };
@@ -157,6 +160,13 @@ export const AccountDeletionModal: React.FC<AccountDeletionModalProps> = ({
                 </p>
               </div>
             </div>
+
+            {errorMessage && (
+              <div className="p-3 bg-red-100 border border-red-300 text-red-900 rounded-xl text-xs flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
 
             <p className="text-xs text-gray-500">
               Usuário conectado: <strong>{user.email || user.name}</strong>

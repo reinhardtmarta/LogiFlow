@@ -18,7 +18,8 @@ import {
   Calendar,
   Layers,
   Sparkles,
-  Bot
+  Bot,
+  AlertCircle
 } from 'lucide-react';
 
 interface UpgradeScreenProps {
@@ -40,6 +41,7 @@ export const UpgradeScreen: React.FC<UpgradeScreenProps> = ({
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [gpayTransactionId, setGpayTransactionId] = useState<string | null>(null);
   const [showBot, setShowBot] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   const sub = store.getSubscription(user.id);
   const sellerProducts = store.getSellerProducts(user.id, true);
@@ -73,7 +75,8 @@ export const UpgradeScreen: React.FC<UpgradeScreenProps> = ({
         onSuccess();
       }, 1500);
     } catch (err: any) {
-      alert(err.message || 'Erro ao processar Google Pay');
+      setPaymentError(err.message || 'Erro ao processar Google Pay. Tente novamente.');
+      setTimeout(() => setPaymentError(null), 5000);
     } finally {
       setIsProcessing(false);
     }
@@ -230,6 +233,13 @@ export const UpgradeScreen: React.FC<UpgradeScreenProps> = ({
         <p className="text-xs text-gray-500 mb-4 leading-relaxed">
           Pague com <strong>Mercado Pago</strong> (Pix instantâneo, cartão ou boleto) ou <strong>Google Pay</strong>. Cada pagamento de R$ 20,00 soma imediatamente +1.000 itens à sua conta por 30 dias.
         </p>
+
+        {paymentError && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs flex items-center gap-2 animate-in fade-in">
+            <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+            <span>{paymentError}</span>
+          </div>
+        )}
 
         <div className="space-y-3">
           {/* Bot de Segurança Oficial Mercado Pago / Mercado Livre */}

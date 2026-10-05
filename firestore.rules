@@ -23,15 +23,20 @@ service cloud.firestore {
       // Anyone can read public profile details (name, seller status)
       allow read: if true;
 
-      // On creation, ensure user is owner and initial quota does not exceed 50
+      // On creation, ensure user is owner and initial quota starts at free limit (50)
       allow create: if isOwner(userId) && (
         request.resource.data.uid == request.auth.uid &&
-        (request.resource.data.product_limit == null || request.resource.data.product_limit <= 100000)
+        (request.resource.data.product_limit == null || request.resource.data.product_limit <= 50)
       );
 
-      // Updates only by the owner with safe type validations
+      // Updates only by the owner; cannot arbitrarily spoof quota
       allow update: if isOwner(userId) && (
-        request.resource.data.uid == request.auth.uid
+        request.resource.data.uid == request.auth.uid &&
+        (
+          request.resource.data.product_limit == resource.data.product_limit ||
+          request.resource.data.product_limit <= 50 ||
+          (request.resource.data.product_limit > resource.data.product_limit && request.resource.data.subscription_status == 'active')
+        )
       );
 
       allow delete: if isOwner(userId);

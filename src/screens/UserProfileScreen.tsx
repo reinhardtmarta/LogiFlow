@@ -20,7 +20,8 @@ import {
   Layers, 
   QrCode,
   Sparkles,
-  Languages
+  Languages,
+  AlertCircle
 } from 'lucide-react';
 
 interface UserProfileScreenProps {
@@ -42,6 +43,8 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const [bio, setBio] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [currentLang, setCurrentLang] = useState<AppLanguage>(i18n.getLanguage());
@@ -107,9 +110,11 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       });
 
       setSaveSuccess(true);
+      setSaveError(null);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: any) {
-      alert('Erro ao salvar perfil: ' + (err.message || 'Tente novamente'));
+      setSaveError('Erro ao salvar perfil: ' + (err.message || 'Tente novamente.'));
+      setTimeout(() => setSaveError(null), 4000);
     } finally {
       setIsSaving(false);
     }
@@ -175,6 +180,13 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           <div className="p-3 bg-emerald-50 border border-emerald-300 text-emerald-800 rounded-xl text-xs flex items-center gap-2 animate-in fade-in">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>Dados atualizados com sucesso no sistema!</span>
+          </div>
+        )}
+
+        {saveError && (
+          <div className="p-3 bg-red-50 border border-red-300 text-red-800 rounded-xl text-xs flex items-center gap-2 animate-in fade-in">
+            <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+            <span>{saveError}</span>
           </div>
         )}
 
@@ -365,8 +377,18 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         <AccountDeletionModal
           user={user}
           onClose={() => setShowDeleteModal(false)}
-          onDeleted={(msg) => alert(msg)}
+          onDeleted={(msg) => {
+            setToastMessage(msg);
+            setTimeout(() => setToastMessage(null), 5000);
+          }}
         />
+      )}
+
+      {toastMessage && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white px-5 py-3 rounded-2xl shadow-2xl text-xs font-semibold flex items-center gap-2 border border-gray-700 animate-in fade-in slide-in-from-bottom-3 duration-200">
+          <span>✓</span>
+          <span>{toastMessage}</span>
+        </div>
       )}
     </div>
   );

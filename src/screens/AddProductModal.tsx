@@ -59,6 +59,21 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Security validation: only standard image formats (block SVG/HTML vectors)
+    const validMimes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!validMimes.includes(file.type)) {
+      setErrorMsg('Formato de imagem inválido. Carregue apenas JPG, PNG ou WebP.');
+      e.target.value = '';
+      return;
+    }
+
+    // Security validation: file size limit 5MB max
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMsg('Arquivo muito grande. O limite máximo é de 5MB por imagem.');
+      e.target.value = '';
+      return;
+    }
+
     if (selectedPhotos.length >= maxPhotos) {
       setErrorMsg(`Seu plano atual permite até ${maxPhotos} foto(s) por produto.`);
       return;
@@ -68,6 +83,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     reader.onload = (event) => {
       const img = new Image();
       img.onload = () => {
+        // Redrawing on Canvas permanently strips all EXIF, GPS location & device metadata
         const canvas = document.createElement('canvas');
         let width = img.width;
         let height = img.height;
@@ -83,6 +99,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
+        // Stripped JPEG representation with optimized compression
         const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.75);
         setSelectedPhotos((prev) => [...prev, compressedDataUrl]);
       };
