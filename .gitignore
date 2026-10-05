@@ -1,4 +1,4 @@
-# Flutter/Dart
+# Flutter & Dart
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
@@ -6,26 +6,25 @@
 .pub-cache/
 .pub/
 build/
-build/web/
+*.symbols
 
 # Android
-android/local.properties
-android/key.properties
-android/app/google-services.json
-android/app/*.keystore
-android/app/*.jks
+**/android/local.properties
+**/android/key.properties
+**/android/app/*.keystore
+**/android/app/*.jks
 *.apk
 *.aab
 
-# iOS
-ios/Flutter/Generated.xcconfig
-ios/Flutter/flutter_export_environment.sh
-ios/Flutter/App.framework
-ios/Flutter/Flutter.framework
-ios/Flutter/Flutter.podspec
-ios/DerivedData/
-ios/Pods/
-ios/.generated/
+# iOS / macOS
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/Flutter/App.framework
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/DerivedData/
+**/ios/Pods/
+**/ios/.generated/
 *.pbxuser
 *.mode1v3
 *.mode2v3
@@ -35,47 +34,50 @@ ios/.generated/
 !default.mode2v3
 !default.perspectivev3
 xcuserdata/
-ios/Runner/GoogleService-Info.plist
 
-# Google Services
+# Chaves, Credenciais e Serviços
 google-services.json
 GoogleService-Info.plist
-
-# Web
-build/web/
-
-# IDEs
-.idea/
-.vscode/
-*.iml
-*.swp
-*.swo
-.DS_Store
-
-# Secrets
+serviceAccountKey.json
+service-account*.json
 .env
 .env.*
 !.env.example
-*.sqlite
 *.pem
 *.key
 *.p12
 *.pfx
-serviceAccountKey.json
-service-account*.json
 
-# Python
+# Bancos de Dados Locais e Logs
+*.sqlite
+*.sqlite3
+*.db
+*-debug.log
+*.log
+.firebase/
+*.local
+
+# Editores e Sistema Operacional
+.DS_Store
+Thumbs.db
+*.iml
+*.swp
+*.swo
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Backend / Ferramentas Auxiliares (Node, Python)
+node_modules/
+dist/
+dist-ssr/
+*server.ts
 __pycache__/
 *.py[cod]
 *$py.class
 venv/
-node_modules/
-
-# Build output
-dist/
-dist-ssr/
-
-# Firebase local state and logs
-.firebase/
-*-debug.log
-*.local
+.venv/
+env/
