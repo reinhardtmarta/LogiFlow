@@ -38,15 +38,32 @@ xcuserdata/
 # Chaves, Credenciais e Serviços
 google-services.json
 GoogleService-Info.plist
+google-services*.json
+GoogleService-Info*.plist
+firebase*.json
+firebase-admin*.json
 serviceAccountKey.json
 service-account*.json
 .env
 .env.*
 !.env.example
+.env.local
+.env.development.local
+.env.production.local
+.env.test
 *.pem
 *.key
+*.crt
+*.cer
 *.p12
 *.pfx
+*.p8
+*.mobileprovision
+*.jks
+*.keystore
+secrets/
+certs/
+ssl/
 
 # Bancos de Dados Locais e Logs
 *.sqlite
