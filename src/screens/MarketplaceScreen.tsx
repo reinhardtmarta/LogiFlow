@@ -39,7 +39,7 @@ export const MarketplaceScreen: React.FC<MarketplaceScreenProps> = ({ user, onOp
       {/* Header bar matching Flutter */}
       <div className="mb-4">
         <h2 className="text-xl font-bold text-gray-900">Marketplace - Rescue Food</h2>
-        <p className="text-xs text-gray-500">Compre direto de produtores com até 70% de desconto</p>
+        <p className="text-xs text-gray-500">Conecte-se diretamente com produtores e lojas para resgate de alimentos</p>
       </div>
 
       {/* Search Bar */}

@@ -15,6 +15,7 @@ import { ChatScreen } from './screens/ChatScreen';
 import { FeedBotScreen } from './screens/FeedBotScreen';
 import { AuthScreen } from './screens/AuthScreen';
 import { UserProfileScreen } from './screens/UserProfileScreen';
+import { OfflineIndicator } from './pwa/OfflineIndicator';
 
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(store.getCurrentUser());
@@ -88,7 +89,7 @@ export const App: React.FC = () => {
   const handleRefreshAiInsight = () => {
     const products = store.getProducts();
     setAiInsightMessage(store.generateSmartInsight(products));
-    showToast('Nova dica gerada pela Gemma!');
+    showToast('Nova dica sustentável gerada!');
   };
 
   const handleOpenChat = (receiverId: string, receiverName: string) => {
@@ -128,6 +129,9 @@ export const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col antialiased select-none sm:select-auto">
+      {/* Offline Connectivity Banner */}
+      <OfflineIndicator />
+
       {/* Top Header */}
       <Header
         user={currentUser}
@@ -204,6 +208,7 @@ export const App: React.FC = () => {
           <StockScreen
             user={currentUser}
             onBack={() => setShowStockScreen(false)}
+            onOpenUpgrade={() => setShowUpgrade({ open: true, tier: 'basic' })}
           />
         </div>
       )}

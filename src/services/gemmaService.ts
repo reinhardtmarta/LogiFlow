@@ -1,13 +1,13 @@
 import { Product } from '../types';
 import { store } from './store';
 
-export interface GemmaAnswer {
+export interface AssistantAnswer {
   text: string;
   matchedProducts?: Product[];
 }
 
 export class GemmaService {
-  public async processQuery(query: string): Promise<GemmaAnswer> {
+  public async processQuery(query: string): Promise<AssistantAnswer> {
     const trimmed = query.trim().toLowerCase();
     const products = store.getProducts();
 
@@ -30,7 +30,7 @@ export class GemmaService {
 
       if (foundDirect.length === 0) {
         return {
-          text: 'Sou o assistente de inteligência LogiFlow Gemma 4 🌱. Posso ajudar você a encontrar alimentos disponíveis, verificar prazos de validade, sugerir receitas para resgate e evitar desperdício de comida!',
+          text: 'Sou o assistente de sustentabilidade do LogiFlow 🌱. Posso ajudar você a encontrar alimentos disponíveis, verificar prazos de validade, sugerir receitas para resgate e evitar desperdício de comida!',
         };
       }
     }
@@ -63,7 +63,7 @@ export class GemmaService {
     // Advice logic for food conservation & rescue
     if (trimmed.includes('receita') || trimmed.includes('aproveitar') || trimmed.includes('maduro')) {
       return {
-        text: 'Dica do Gemma 4: Frutas maduras como bananas e maçãs são ideais para vitaminas, compotas ou bolos integrais. Pães do dia anterior podem ser transformados em torradas temperadas ou farinha de rosca caseira! Isso evita o descarte.',
+        text: 'Dica de Conservação: Frutas maduras como bananas e maçãs são ideais para vitaminas, compotas ou bolos integrais. Pães do dia anterior podem ser transformados em torradas temperadas ou farinha de rosca caseira! Isso evita o descarte.',
       };
     }
 
@@ -88,7 +88,7 @@ export class GemmaService {
     }
 
     return {
-      text: `Obrigado por consultar o LogiFlow Gemma 4! Nossa plataforma conecta produtores a consumidores para que nenhum alimento de qualidade seja descartado. Atualmente temos ${products.length} ofertas cadastradas no Marketplace.`,
+      text: `Obrigado por consultar o LogiFlow! Nossa plataforma conecta produtores a consumidores para que nenhum alimento de qualidade seja descartado. Atualmente temos ${products.length} ofertas cadastradas no Marketplace.`,
     };
   }
 }

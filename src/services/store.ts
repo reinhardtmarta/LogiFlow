@@ -124,6 +124,8 @@ class StoreService {
     this.products = this.loadPersistedProducts();
     // 3. Listener passivo de autenticação da conta Google (mantém logado)
     this.initAuthSync();
+    // 4. Sincronização em tempo real de produtos do Firestore
+    this.initFirestoreProductsSync();
   }
 
   private loadPersistedUser(): User | null {
@@ -155,6 +157,7 @@ class StoreService {
   private initAuthSync() {
     onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
+        const persisted = this.loadPersistedUser();
         try {
           const profileRef = doc(db, 'profiles', fbUser.uid);
           const snap = await getDoc(profileRef);
@@ -163,11 +166,11 @@ class StoreService {
             const data = snap.data();
             this.currentUser = {
               id: fbUser.uid,
-              name: data.name || fbUser.displayName || fbUser.email?.split('@')[0] || 'Usuário',
-              email: fbUser.email || '',
-              phone: data.phone || '',
-              address: data.address || '',
-              isSeller: Boolean(data.is_seller),
+              name: data.name || fbUser.displayName || fbUser.email?.split('@')[0] || persisted?.name || 'Usuário',
+              email: fbUser.email || persisted?.email || '',
+              phone: data.phone !== undefined ? data.phone : (persisted?.phone || ''),
+              address: data.address !== undefined ? data.address : (persisted?.address || ''),
+              isSeller: data.is_seller !== undefined ? Boolean(data.is_seller) : (persisted?.isSeller ?? false),
               settings: { language: 'pt', interests: [] },
             };
             this.subscriptions[fbUser.uid] = {
@@ -180,11 +183,11 @@ class StoreService {
           } else {
             this.currentUser = {
               id: fbUser.uid,
-              name: fbUser.displayName || fbUser.email?.split('@')[0] || 'Usuário Google',
-              email: fbUser.email || '',
-              phone: '',
-              address: 'São Paulo, SP',
-              isSeller: false,
+              name: fbUser.displayName || fbUser.email?.split('@')[0] || persisted?.name || 'Usuário Google',
+              email: fbUser.email || persisted?.email || '',
+              phone: persisted?.phone || '',
+              address: persisted?.address || 'São Paulo, SP',
+              isSeller: persisted?.isSeller ?? false,
               settings: { language: 'pt', interests: [] },
             };
             this.subscriptions[fbUser.uid] = {
@@ -192,16 +195,29 @@ class StoreService {
               productLimit: 50,
               status: 'none',
             };
+            // Create initial profile doc in background
+            try {
+              await setDoc(profileRef, {
+                uid: fbUser.uid,
+                name: this.currentUser.name,
+                email: this.currentUser.email,
+                is_seller: Boolean(this.currentUser.isSeller),
+                product_limit: 50,
+                subscription_status: 'none',
+                plan: 'free',
+                created_at: new Date().toISOString(),
+              }, { merge: true });
+            } catch (_) {}
           }
         } catch (e) {
           // Fallback persistente caso sem conexão
           this.currentUser = {
             id: fbUser.uid,
-            name: fbUser.displayName || 'Usuário LogiFlow',
-            email: fbUser.email || '',
-            phone: '',
-            address: 'Brasil',
-            isSeller: false,
+            name: fbUser.displayName || persisted?.name || 'Usuário LogiFlow',
+            email: fbUser.email || persisted?.email || '',
+            phone: persisted?.phone || '',
+            address: persisted?.address || 'Brasil',
+            isSeller: persisted?.isSeller ?? false,
             settings: { language: 'pt', interests: [] },
           };
         }
@@ -265,24 +281,54 @@ class StoreService {
 
   public setCurrentUser(user: User | null) {
     this.currentUser = user;
+    try {
+      if (user) {
+        localStorage.setItem('logiflow_active_user', JSON.stringify(user));
+      } else {
+        localStorage.removeItem('logiflow_active_user');
+      }
+    } catch (_) {}
     this.notify();
   }
 
   public async updateUserProfile(updates: Partial<User>) {
     if (!this.currentUser) return;
-    this.currentUser = { ...this.currentUser, ...updates };
+    const newIsSeller = updates.isSeller !== undefined ? Boolean(updates.isSeller) : Boolean(this.currentUser.isSeller);
+    this.currentUser = { 
+      ...this.currentUser, 
+      ...updates,
+      isSeller: newIsSeller,
+    };
+
+    // 1. Immediately persist locally to ensure zero loss across renders
+    try {
+      localStorage.setItem('logiflow_active_user', JSON.stringify(this.currentUser));
+    } catch (_) {}
+
+    // 2. Notify all components immediately for instant reactive UI updates
+    this.notify();
+
+    // 3. Persist to Cloud Firestore with setDoc merge
     try {
       const profileRef = doc(db, 'profiles', this.currentUser.id);
-      await updateDoc(profileRef, {
+      await setDoc(profileRef, {
+        uid: this.currentUser.id,
         name: this.currentUser.name,
         phone: this.currentUser.phone,
         address: this.currentUser.address,
-        is_seller: this.currentUser.isSeller,
-      });
+        is_seller: newIsSeller,
+        updated_at: new Date().toISOString(),
+      }, { merge: true });
     } catch (e) {
       console.warn('Profile update Firestore notice:', e);
     }
-    this.notify();
+  }
+
+  public async toggleUserRole(): Promise<boolean> {
+    if (!this.currentUser) return false;
+    const nextRole = !this.currentUser.isSeller;
+    await this.updateUserProfile({ isSeller: nextRole });
+    return nextRole;
   }
 
   public async signOut() {
@@ -573,6 +619,66 @@ class StoreService {
       await deleteDoc(doc(db, 'products', productId));
     } catch (e) {
       handleFirestoreError(e, OperationType.DELETE, `products/${productId}`);
+    }
+  }
+
+  public async toggleProductVisibility(productId: string) {
+    let newHidden = false;
+    this.products = this.products.map((p) => {
+      if (p.id === productId) {
+        newHidden = !p.hidden;
+        return { ...p, hidden: newHidden };
+      }
+      return p;
+    });
+    this.notify();
+
+    try {
+      await updateDoc(doc(db, 'products', productId), {
+        hidden: newHidden,
+      });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `products/${productId}`);
+    }
+  }
+
+  public async toggleProductRescueStatus(productId: string) {
+    let newRescue = false;
+    this.products = this.products.map((p) => {
+      if (p.id === productId) {
+        newRescue = !p.isRescue;
+        return { ...p, isRescue: newRescue };
+      }
+      return p;
+    });
+    this.notify();
+
+    try {
+      await updateDoc(doc(db, 'products', productId), {
+        is_rescue: newRescue,
+      });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `products/${productId}`);
+    }
+  }
+
+  public async toggleProductReserved(productId: string) {
+    let newReserved = false;
+    this.products = this.products.map((p) => {
+      if (p.id === productId) {
+        newReserved = !p.isReserved;
+        return { ...p, isReserved: newReserved };
+      }
+      return p;
+    });
+    this.notify();
+
+    try {
+      await updateDoc(doc(db, 'products', productId), {
+        is_reserved: newReserved,
+      });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `products/${productId}`);
     }
   }
 

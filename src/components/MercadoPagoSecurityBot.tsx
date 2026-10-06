@@ -3,16 +3,11 @@ import { User } from '../types';
 import { store } from '../services/store';
 import { MERCADO_PAGO_CONFIG } from '../config/payment';
 import { 
-  Bot, 
   ShieldCheck, 
   ExternalLink, 
   CheckCircle2, 
-  Lock, 
   AlertCircle, 
   Loader2, 
-  Sparkles,
-  QrCode,
-  FileCheck,
   ArrowRight
 } from 'lucide-react';
 
@@ -22,14 +17,14 @@ interface MercadoPagoSecurityBotProps {
   onClose: () => void;
 }
 
-type BotStep = 'ready' | 'waiting_payment' | 'validating' | 'authorized';
+type StepType = 'ready' | 'waiting_payment' | 'validating' | 'authorized';
 
 export const MercadoPagoSecurityBot: React.FC<MercadoPagoSecurityBotProps> = ({
   user,
   onSuccess,
   onClose,
 }) => {
-  const [step, setStep] = useState<BotStep>('ready');
+  const [step, setStep] = useState<StepType>('ready');
   const [paymentProofCode, setPaymentProofCode] = useState('');
   const [validationLog, setValidationLog] = useState<string[]>([]);
   const [authHash, setAuthHash] = useState('');
@@ -42,8 +37,8 @@ export const MercadoPagoSecurityBot: React.FC<MercadoPagoSecurityBotProps> = ({
     setStep('waiting_payment');
     setValidationLog((prev) => [
       ...prev,
-      '🔒 [Bot]: Redirecionando para o ambiente seguro oficial do Mercado Pago / Mercado Livre.',
-      '⏳ [Bot]: Aguardando autorização e liquidação da transação de R$ 20,00...',
+      '🔒 [Sistema]: Redirecionando para o ambiente seguro oficial do Mercado Pago / Mercado Livre.',
+      '⏳ [Sistema]: Aguardando autorização e liquidação da transação de R$ 20,00...',
     ]);
   };
 
@@ -51,15 +46,15 @@ export const MercadoPagoSecurityBot: React.FC<MercadoPagoSecurityBotProps> = ({
     setErrorMsg(null);
     setStep('validating');
     setValidationLog([
-      '🔍 [Bot]: Iniciando verificação de segurança da autorização...',
-      '🛡️ [Bot]: Validando certificado SSL e idoneidade do link https://mpago.la/2FX9UEy',
+      '🔍 [Segurança]: Iniciando verificação de segurança da autorização...',
+      '🛡️ [Segurança]: Validando certificado SSL e idoneidade do link https://mpago.la/2FX9UEy',
     ]);
 
     await new Promise((r) => setTimeout(r, 800));
     setValidationLog((prev) => [
       ...prev,
-      '✔️ [Bot]: Conexão com Mercado Pago confirmada. Nenhuma fraude detectada.',
-      '🔐 [Bot]: Validando cota de +1.000 itens para o usuário: ' + user.email,
+      '✔️ [Segurança]: Conexão com Mercado Pago confirmada. Nenhuma fraude detectada.',
+      '🔐 [Segurança]: Validando cota de +1.000 itens para o usuário: ' + user.email,
     ]);
 
     await new Promise((r) => setTimeout(r, 900));
@@ -78,9 +73,9 @@ export const MercadoPagoSecurityBot: React.FC<MercadoPagoSecurityBotProps> = ({
       setStep('authorized');
       setValidationLog((prev) => [
         ...prev,
-        '🎉 [Bot]: Pagamento autorizado com sucesso!',
-        `📜 [Bot]: Hash de Auditoria Imutável gerado: ${generatedHash}`,
-        '📦 [Bot]: Cota de +1.000 produtos liberada no banco de dados por 30 dias.',
+        '🎉 [Sistema]: Pagamento autorizado com sucesso!',
+        `📜 [Auditoria]: Hash de Auditoria Imutável gerado: ${generatedHash}`,
+        '📦 [Sistema]: Cota de +1.000 produtos liberada no banco de dados por 30 dias.',
       ]);
     } catch (err: any) {
       setErrorMsg('Falha ao registrar autorização: ' + err.message);
@@ -98,15 +93,15 @@ export const MercadoPagoSecurityBot: React.FC<MercadoPagoSecurityBotProps> = ({
           ✕
         </button>
 
-        {/* Bot Header */}
+        {/* Security Header */}
         <div className="flex items-center gap-3 mb-4 pb-3 border-b border-gray-100">
           <div className="w-12 h-12 rounded-2xl bg-[#009EE3]/15 text-[#009EE3] flex items-center justify-center shrink-0 border border-[#009EE3]/30">
-            <Bot className="w-6 h-6" />
+            <ShieldCheck className="w-6 h-6" />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h3 className="font-extrabold text-gray-900 text-base">
-                Bot de Segurança Mercado Pago
+                Verificação Segura Mercado Pago
               </h3>
               <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -119,7 +114,7 @@ export const MercadoPagoSecurityBot: React.FC<MercadoPagoSecurityBotProps> = ({
           </div>
         </div>
 
-        {/* Bot Message Box */}
+        {/* Security Message Box */}
         <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200 mb-4 space-y-2 text-xs font-mono text-gray-700">
           <p className="font-bold text-gray-900 flex items-center gap-1.5 font-sans">
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
@@ -128,7 +123,7 @@ export const MercadoPagoSecurityBot: React.FC<MercadoPagoSecurityBotProps> = ({
           <div className="space-y-1 text-[11px] leading-relaxed">
             {validationLog.length === 0 ? (
               <p className="text-gray-500">
-                Olá! Sou o assistente de segurança do LogiFlow. Vou acompanhar e autenticar o seu pagamento de R$ 20,00 no Mercado Pago para liberar seus 1.000 itens de estoque com total proteção contra fraudes.
+                Acompanhamos e autenticamos o seu pagamento de R$ 20,00 no Mercado Pago para liberar seus 1.000 itens de estoque com total proteção contra fraudes.
               </p>
             ) : (
               validationLog.map((log, i) => (
@@ -167,7 +162,7 @@ export const MercadoPagoSecurityBot: React.FC<MercadoPagoSecurityBotProps> = ({
           <div className="space-y-3">
             <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 leading-relaxed">
               <p className="font-bold mb-1">Passo 2: Concluir Pagamento no Mercado Pago</p>
-              <p>Após pagar via Pix ou Cartão no link do Mercado Pago, clique no botão de autorização abaixo para que o Bot verifique e credite os +1.000 itens.</p>
+              <p>Após pagar via Pix ou Cartão no link do Mercado Pago, clique no botão de autorização abaixo para que o sistema verifique e credite os +1.000 itens.</p>
             </div>
 
             <div className="space-y-2">
@@ -207,7 +202,7 @@ export const MercadoPagoSecurityBot: React.FC<MercadoPagoSecurityBotProps> = ({
           <div className="py-8 text-center space-y-3">
             <Loader2 className="w-10 h-10 text-[#009EE3] animate-spin mx-auto" />
             <h4 className="font-bold text-sm text-gray-800">
-              Bot autenticando transação no Mercado Pago...
+              Autenticando transação no Mercado Pago...
             </h4>
             <p className="text-xs text-gray-500 max-w-xs mx-auto">
               Verificando integridade da chave, prevenção de duplicidade e liberando cota no banco de dados.

@@ -14,15 +14,10 @@ import {
   Package, 
   MessageSquareText, 
   Navigation,
-  Bot,
-  Filter,
   Clock,
   DollarSign,
   Compass,
-  Bike,
-  Footprints,
-  SlidersHorizontal,
-  ChevronDown
+  SlidersHorizontal
 } from 'lucide-react';
 
 interface GeneralFeedScreenProps {
@@ -54,10 +49,9 @@ export const GeneralFeedScreen: React.FC<GeneralFeedScreenProps> = ({
   const [expiryFilter, setExpiryFilter] = useState<ExpiryFilter>('all');
   const [priceFilter, setPriceFilter] = useState<PriceFilter>('all');
   const [distanceFilter, setDistanceFilter] = useState<DistanceFilter>('all');
-  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
 
-  // Distance Bot Modal State
-  const [selectedProductForBot, setSelectedProductForBot] = useState<Product | null>(null);
+  // Distance Calculation Modal State
+  const [selectedProductForRoute, setSelectedProductForRoute] = useState<Product | null>(null);
 
   useEffect(() => {
     const update = () => {
@@ -75,14 +69,14 @@ export const GeneralFeedScreen: React.FC<GeneralFeedScreenProps> = ({
     return Math.ceil((d1 - d2) / (1000 * 60 * 60 * 24));
   };
 
-  // Bot-Assisted Distance Calculation for each product
-  const productsWithBotDistance = useMemo(() => {
+  // Distance Calculation for each product based on location
+  const productsWithDistance = useMemo(() => {
     return products.map((p, idx) => {
-      const botCalc = DistanceBot.calculate(buyerRegion, p.address || 'São Paulo, SP', idx);
+      const distCalc = DistanceBot.calculate(buyerRegion, p.address || 'São Paulo, SP', idx);
       const days = getDaysLeft(p.expiryDate);
       return {
         ...p,
-        botDistance: botCalc,
+        botDistance: distCalc,
         daysLeft: days,
       };
     });
@@ -90,7 +84,7 @@ export const GeneralFeedScreen: React.FC<GeneralFeedScreenProps> = ({
 
   // Filter & Sort Pipeline
   const filteredProducts = useMemo(() => {
-    let list = [...productsWithBotDistance];
+    let list = [...productsWithDistance];
 
     // 1. Expiry Filter
     if (expiryFilter === 'today') {
@@ -106,7 +100,7 @@ export const GeneralFeedScreen: React.FC<GeneralFeedScreenProps> = ({
       list = list.filter((p) => p.price <= 15);
     }
 
-    // 3. Local / Distance Filter (Bot-calculated)
+    // 3. Local / Distance Filter
     if (distanceFilter === '2km') {
       list = list.filter((p) => p.botDistance.distanceMeters <= 2000);
     } else if (distanceFilter === '5km') {
@@ -138,7 +132,7 @@ export const GeneralFeedScreen: React.FC<GeneralFeedScreenProps> = ({
     });
 
     return list;
-  }, [productsWithBotDistance, expiryFilter, priceFilter, distanceFilter]);
+  }, [productsWithDistance, expiryFilter, priceFilter, distanceFilter]);
 
   const activeFiltersCount =
     (expiryFilter !== 'all' ? 1 : 0) +
@@ -153,7 +147,7 @@ export const GeneralFeedScreen: React.FC<GeneralFeedScreenProps> = ({
 
   return (
     <div className="pb-24 pt-3 max-w-xl mx-auto px-4">
-      {/* Gemma AI Smart Insight Banner */}
+      {/* Sustainable Tip Banner */}
       {aiInsightMessage && (
         <div className="mb-4 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white p-4 rounded-2xl shadow-md border border-emerald-500/30 flex items-start gap-3 relative animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="p-2 bg-white/20 rounded-xl shrink-0 mt-0.5">
@@ -161,7 +155,7 @@ export const GeneralFeedScreen: React.FC<GeneralFeedScreenProps> = ({
           </div>
           <div className="flex-1 pr-6">
             <p className="text-[11px] font-black uppercase tracking-wider text-emerald-200">
-              {t('gemma_tip_title')}
+              {t('eco_tip_title')}
             </p>
             <p className="text-sm font-medium mt-0.5 leading-snug text-white">
               {aiInsightMessage}
@@ -170,23 +164,23 @@ export const GeneralFeedScreen: React.FC<GeneralFeedScreenProps> = ({
           <button
             onClick={onDismissAiInsight}
             className="absolute top-3 right-3 p-1 rounded-full hover:bg-white/20 text-white/80 hover:text-white transition cursor-pointer"
-            title="Fechar dica"
+            title="Fechar"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
       )}
 
-      {/* Distance Bot: Reference Region Bar (No GPS needed!) */}
+      {/* Reference Region Bar (Zero intrusive GPS) */}
       <div className="bg-white rounded-2xl p-3 border border-gray-200 shadow-xs mb-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-            <Bot className="w-4 h-4" />
+            <Compass className="w-4 h-4" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] font-bold text-gray-400 uppercase">
-                {t('distance_bot_title')}
+                {t('distance_calculator_title')}
               </span>
               <span className="text-[9px] bg-emerald-50 text-emerald-700 font-bold px-1.5 rounded">
                 {t('no_gps_badge')}
@@ -231,6 +225,14 @@ export const GeneralFeedScreen: React.FC<GeneralFeedScreenProps> = ({
             {t('change_region_btn')}
           </button>
         )}
+      </div>
+
+      {/* Direct Connection Notice */}
+      <div className="mb-3 px-3 py-2 bg-emerald-50/70 border border-emerald-200/80 rounded-xl text-[11px] text-emerald-900 flex items-center justify-between gap-2 shadow-2xs">
+        <div className="flex items-center gap-1.5">
+          <Leaf className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+          <span><strong>Ponte Direta</strong>: Conecte-se com o ofertante pelo chat. O app não retém pagamentos.</span>
+        </div>
       </div>
 
       {/* Filter Control Header */}
@@ -301,7 +303,7 @@ export const GeneralFeedScreen: React.FC<GeneralFeedScreenProps> = ({
             </select>
           </div>
 
-          {/* 3. Local Próximo (Calculado pelo Bot) */}
+          {/* 3. Local Próximo */}
           <div>
             <label className="block text-[10px] font-bold text-gray-400 mb-1 flex items-center gap-1">
               <Compass className="w-3 h-3 text-blue-600" />
@@ -329,7 +331,7 @@ export const GeneralFeedScreen: React.FC<GeneralFeedScreenProps> = ({
           </div>
           <h3 className="font-bold text-gray-800 text-base">{t('noItemsFound')}</h3>
           <p className="text-xs text-gray-500 mt-1 max-w-xs mx-auto">
-            Tente expandir o raio de distância ou selecionar outros critérios de valor e vencimento.
+            {t('no_items_hint')}
           </p>
           <button
             onClick={clearAllFilters}
@@ -403,19 +405,19 @@ export const GeneralFeedScreen: React.FC<GeneralFeedScreenProps> = ({
                         {p.name}
                       </h3>
 
-                      {/* Location & Distance Calculated by the Bot */}
+                      {/* Location & Distance */}
                       <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-500 mt-1">
                         <MapPin className="w-3.5 h-3.5 shrink-0 text-gray-400" />
                         <span className="truncate">{p.address}</span>
 
-                        {/* Bot Distance Badge */}
+                        {/* Distance Badge */}
                         <button
                           type="button"
-                          onClick={() => setSelectedProductForBot(p)}
+                          onClick={() => setSelectedProductForRoute(p)}
                           className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full transition cursor-pointer"
-                          title="Clique para ver detalhes calculados pelo Bot de Rota"
+                          title="Clique para ver detalhes de distância e rota"
                         >
-                          <Bot className="w-3 h-3 text-emerald-700" />
+                          <Navigation className="w-3 h-3 text-emerald-700" />
                           <span>{p.botDistance.distanceFormatted}</span>
                           <span className="text-gray-400 font-normal">
                             (~{p.botDistance.walkingMinutes} min)
@@ -444,14 +446,14 @@ export const GeneralFeedScreen: React.FC<GeneralFeedScreenProps> = ({
                   </div>
                 </div>
 
-                {/* Action Buttons: Distance Bot & Combinar Resgate */}
+                {/* Action Buttons: Distance Calculator & Combine Rescue */}
                 <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
                   <button
                     type="button"
-                    onClick={() => setSelectedProductForBot(p)}
+                    onClick={() => setSelectedProductForRoute(p)}
                     className="py-1.5 px-3 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 text-xs font-semibold rounded-xl transition flex items-center gap-1.5 cursor-pointer"
                   >
-                    <Bot className="w-3.5 h-3.5 text-emerald-600" />
+                    <Navigation className="w-3.5 h-3.5 text-emerald-600" />
                     <span>{t('calculateRoute')}</span>
                   </button>
 
@@ -470,12 +472,12 @@ export const GeneralFeedScreen: React.FC<GeneralFeedScreenProps> = ({
         </div>
       )}
 
-      {/* Distance Bot Interactive Modal */}
-      {selectedProductForBot && (
+      {/* Distance & Route Interactive Modal */}
+      {selectedProductForRoute && (
         <DistanceBotModal
-          product={selectedProductForBot}
+          product={selectedProductForRoute}
           initialBuyerAddress={buyerRegion}
-          onClose={() => setSelectedProductForBot(null)}
+          onClose={() => setSelectedProductForRoute(null)}
           onUpdateBuyerAddress={(newAddr) => setBuyerRegion(newAddr)}
         />
       )}

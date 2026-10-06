@@ -85,6 +85,7 @@ export interface Product {
   category: string;
   isRescue: boolean;
   isFeatured: boolean;
+  isReserved?: boolean;
   hidden: boolean;
   wastePreventedKg: number;
   createdAt: string;

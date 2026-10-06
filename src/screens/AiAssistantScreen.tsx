@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { User, Product } from '../types';
 import { gemmaService } from '../services/gemmaService';
-import { Sparkles, Send, Bot, User as UserIcon, Loader2, ArrowRight } from 'lucide-react';
+import { Sparkles, Send, User as UserIcon, Loader2, ArrowRight } from 'lucide-react';
 
 interface AiAssistantScreenProps {
   user: User;
@@ -10,7 +10,7 @@ interface AiAssistantScreenProps {
 
 interface MessageItem {
   id: string;
-  role: 'user' | 'gemma';
+  role: 'user' | 'assistant';
   text: string;
   matchedProducts?: Product[];
 }
@@ -22,7 +22,7 @@ export const AiAssistantScreen: React.FC<AiAssistantScreenProps> = ({ user, onOp
 
   const samplePrompts = [
     'Quais alimentos estão com prazo urgente de resgate?',
-    'Do we have organic milk or dairy in stock?',
+    'Temos leite ou laticínios orgânicos disponíveis?',
     'Dicas de receitas para aproveitar maçãs maduras',
     'Como conservar pães artesanais por mais tempo?',
   ];
@@ -42,25 +42,24 @@ export const AiAssistantScreen: React.FC<AiAssistantScreenProps> = ({ user, onOp
     setIsThinking(true);
 
     try {
-      // Simulate natural AI thinking delay
       await new Promise((r) => setTimeout(r, 600));
       const res = await gemmaService.processQuery(q);
 
-      const gemmaMsg: MessageItem = {
-        id: 'gem_' + Date.now(),
-        role: 'gemma',
+      const assistantMsg: MessageItem = {
+        id: 'ast_' + Date.now(),
+        role: 'assistant',
         text: res.text,
         matchedProducts: res.matchedProducts,
       };
 
-      setMessages((prev) => [...prev, gemmaMsg]);
+      setMessages((prev) => [...prev, assistantMsg]);
     } catch {
       setMessages((prev) => [
         ...prev,
         {
-          id: 'gem_' + Date.now(),
-          role: 'gemma',
-          text: 'Erro de processamento na comunicação com a IA.',
+          id: 'ast_' + Date.now(),
+          role: 'assistant',
+          text: 'Erro de processamento no momento.',
         },
       ]);
     } finally {
@@ -74,10 +73,10 @@ export const AiAssistantScreen: React.FC<AiAssistantScreenProps> = ({ user, onOp
       <div className="mb-3 shrink-0">
         <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-emerald-600" />
-          Gemma 4 AI Assistant
+          Assistente de Sustentabilidade
         </h2>
         <p className="text-xs text-gray-500">
-          Inteligência dedicada para gestão de estoque e resgate de alimentos
+          Orientação inteligente para gestão de estoque e resgate de alimentos
         </p>
       </div>
 
@@ -86,10 +85,10 @@ export const AiAssistantScreen: React.FC<AiAssistantScreenProps> = ({ user, onOp
         {messages.length === 0 ? (
           <div className="py-8 text-center">
             <div className="w-14 h-14 rounded-2xl bg-emerald-100/60 text-emerald-700 flex items-center justify-center mx-auto mb-3">
-              <Bot className="w-7 h-7" />
+              <Sparkles className="w-7 h-7" />
             </div>
             <h3 className="font-bold text-gray-800 text-sm">
-              Pergunte qualquer coisa sobre estoque 🌱
+              Pergunte sobre estoque e sustentabilidade 🌱
             </h3>
             <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto">
               Descubra quais itens estão prestes a vencer, dicas de conservação ou busque ofertas.
@@ -122,7 +121,7 @@ export const AiAssistantScreen: React.FC<AiAssistantScreenProps> = ({ user, onOp
               >
                 {!isUser && (
                   <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-0.5">
-                    <Bot className="w-4 h-4" />
+                    <Sparkles className="w-4 h-4" />
                   </div>
                 )}
 
@@ -135,7 +134,7 @@ export const AiAssistantScreen: React.FC<AiAssistantScreenProps> = ({ user, onOp
                 >
                   <p className="whitespace-pre-line">{msg.text}</p>
 
-                  {/* Matched product buttons inside AI response */}
+                  {/* Matched product buttons */}
                   {msg.matchedProducts && msg.matchedProducts.length > 0 && (
                     <div className="mt-3 pt-2 border-t border-gray-100 space-y-1.5">
                       <p className="text-[11px] font-bold text-gray-500 uppercase">
@@ -170,12 +169,12 @@ export const AiAssistantScreen: React.FC<AiAssistantScreenProps> = ({ user, onOp
         {isThinking && (
           <div className="flex items-center gap-2 text-xs text-gray-500 py-1 px-1">
             <Loader2 className="w-4 h-4 text-emerald-600 animate-spin" />
-            <span>Gemma 4 is checking data...</span>
+            <span>Consultando dados do inventário...</span>
           </div>
         )}
       </div>
 
-      {/* Input section matching Flutter */}
+      {/* Input section */}
       <div className="pt-2 shrink-0">
         <form
           onSubmit={(e) => {
@@ -188,7 +187,7 @@ export const AiAssistantScreen: React.FC<AiAssistantScreenProps> = ({ user, onOp
             type="text"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Do we have organic milk?"
+            placeholder="Digite sua dúvida sobre alimentos ou estoque..."
             className="flex-1 px-3 py-1.5 text-sm bg-transparent border-none focus:outline-none text-gray-800"
           />
           <button
@@ -199,10 +198,6 @@ export const AiAssistantScreen: React.FC<AiAssistantScreenProps> = ({ user, onOp
             <Send className="w-4 h-4" />
           </button>
         </form>
-
-        <p className="text-[11px] text-center text-gray-400 mt-2 font-medium">
-          Powered by Gemma 4
-        </p>
       </div>
     </div>
   );

@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { User, Product } from '../types';
 import { store } from '../services/store';
 import { formatDistance } from '../utils/distance';
+import { useLanguage } from '../context/LanguageContext';
 import { 
-  Bot, 
-  Sparkles, 
   Tag, 
   AlertTriangle, 
   Apple, 
@@ -13,11 +12,10 @@ import {
   Star, 
   BarChart3, 
   MessageSquare, 
-  RefreshCw,
-  Search,
-  CheckCircle2,
   Clock,
-  Navigation
+  Navigation,
+  Compass,
+  Sparkles
 } from 'lucide-react';
 
 interface FeedBotScreenProps {
@@ -26,9 +24,9 @@ interface FeedBotScreenProps {
   onNavigateToCategory?: (category: string) => void;
 }
 
-interface BotMessage {
+interface MessageItem {
   id: string;
-  sender: 'bot' | 'user';
+  sender: 'system' | 'user';
   text: string;
   products?: Product[];
   stats?: {
@@ -40,9 +38,9 @@ interface BotMessage {
 }
 
 export const FeedBotScreen: React.FC<FeedBotScreenProps> = ({ user, onOpenChat }) => {
+  const { t } = useLanguage();
   const [products, setProducts] = useState<Product[]>(store.getProducts());
-  const [messages, setMessages] = useState<BotMessage[]>([]);
-  const [filterQuery, setFilterQuery] = useState('');
+  const [messages, setMessages] = useState<MessageItem[]>([]);
 
   useEffect(() => {
     const update = () => {
@@ -51,19 +49,13 @@ export const FeedBotScreen: React.FC<FeedBotScreenProps> = ({ user, onOpenChat }
     return store.subscribe(update);
   }, []);
 
-  // Initialize bot with welcome message and options
+  // Initialize with welcome message and options
   useEffect(() => {
-    const currentProducts = store.getProducts();
-    const urgentCount = currentProducts.filter((p) => {
-      const days = Math.ceil((new Date(p.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-      return days <= 3;
-    }).length;
-
     setMessages([
       {
         id: 'msg_welcome',
-        sender: 'bot',
-        text: `Olá, ${user.name}! Sou o LogiBot, seu assistente nativo do feed. 🤖🌱\n\nNão precisa digitar nada! Escolha uma das opções rápidas abaixo para explorar o feed em tempo real:`,
+        sender: 'system',
+        text: `Olá, ${user.name}! Bem-vindo ao Explorador do Feed LogiFlow 🌱\n\nToque em uma das opções abaixo para filtrar e explorar o inventário em tempo real:`,
       },
     ]);
   }, [user.name]);
@@ -81,8 +73,8 @@ export const FeedBotScreen: React.FC<FeedBotScreenProps> = ({ user, onOpenChat }
           text: '🏷️ Mostrar os melhores preços do feed',
         },
         {
-          id: 'bot_' + Date.now(),
-          sender: 'bot',
+          id: 'sys_' + Date.now(),
+          sender: 'system',
           text: `Encontrei ${sorted.length} produtos ordenados do menor para o maior preço:`,
           products: sorted.slice(0, 5),
         },
@@ -101,8 +93,8 @@ export const FeedBotScreen: React.FC<FeedBotScreenProps> = ({ user, onOpenChat }
           text: '⚡ Ver alimentos em resgate urgente (≤ 3 dias)',
         },
         {
-          id: 'bot_' + Date.now(),
-          sender: 'bot',
+          id: 'sys_' + Date.now(),
+          sender: 'system',
           text: urgent.length > 0
             ? `Atenção: temos ${urgent.length} produto(s) com validade crítica. Resgatá-los evita o descarte!`
             : 'Boas notícias: no momento nenhum item está com vencimento urgente inferior a 3 dias!',
@@ -110,7 +102,7 @@ export const FeedBotScreen: React.FC<FeedBotScreenProps> = ({ user, onOpenChat }
         },
       ]);
     } else if (action === 'cat_produce') {
-      const filtered = current.filter((p) => p.category === 'Fruits & Vegetables');
+      const filtered = current.filter((p) => p.category === 'Frutas & Vegetais' || p.category === 'Fruits & Vegetables');
       setMessages((prev) => [
         ...prev,
         {
@@ -119,30 +111,30 @@ export const FeedBotScreen: React.FC<FeedBotScreenProps> = ({ user, onOpenChat }
           text: '🍎 Filtrar Frutas & Vegetais',
         },
         {
-          id: 'bot_' + Date.now(),
-          sender: 'bot',
+          id: 'sys_' + Date.now(),
+          sender: 'system',
           text: `Encontrei ${filtered.length} item(ns) na categoria Frutas & Vegetais:`,
           products: filtered,
         },
       ]);
     } else if (action === 'cat_bakery') {
-      const filtered = current.filter((p) => p.category === 'Bakery' || p.category === 'Grains & Pasta');
+      const filtered = current.filter((p) => p.category === 'Padaria' || p.category === 'Bakery' || p.category === 'Grains & Pasta');
       setMessages((prev) => [
         ...prev,
         {
           id: 'user_' + Date.now(),
           sender: 'user',
-          text: '🥖 Filtrar Padaria & Panificação',
+          text: '🥖 Filtrar Padaria & Grãos',
         },
         {
-          id: 'bot_' + Date.now(),
-          sender: 'bot',
+          id: 'sys_' + Date.now(),
+          sender: 'system',
           text: `Encontrei ${filtered.length} item(ns) de Padaria e Grãos:`,
           products: filtered,
         },
       ]);
     } else if (action === 'cat_dairy') {
-      const filtered = current.filter((p) => p.category === 'Dairy' || p.category === 'Beverages');
+      const filtered = current.filter((p) => p.category === 'Laticínios' || p.category === 'Dairy' || p.category === 'Beverages');
       setMessages((prev) => [
         ...prev,
         {
@@ -151,8 +143,8 @@ export const FeedBotScreen: React.FC<FeedBotScreenProps> = ({ user, onOpenChat }
           text: '🥛 Filtrar Laticínios & Bebidas',
         },
         {
-          id: 'bot_' + Date.now(),
-          sender: 'bot',
+          id: 'sys_' + Date.now(),
+          sender: 'system',
           text: `Encontrei ${filtered.length} item(ns) de Laticínios e Bebidas:`,
           products: filtered,
         },
@@ -167,8 +159,8 @@ export const FeedBotScreen: React.FC<FeedBotScreenProps> = ({ user, onOpenChat }
           text: '⭐ Ver produtos em destaque',
         },
         {
-          id: 'bot_' + Date.now(),
-          sender: 'bot',
+          id: 'sys_' + Date.now(),
+          sender: 'system',
           text: featured.length > 0
             ? `Aqui estão os produtos destacados pelos produtores:`
             : 'No momento nenhum produtor ativou destaque para itens.',
@@ -187,8 +179,8 @@ export const FeedBotScreen: React.FC<FeedBotScreenProps> = ({ user, onOpenChat }
           text: '📍 Alimentos mais próximos de mim (km/m)',
         },
         {
-          id: 'bot_' + Date.now(),
-          sender: 'bot',
+          id: 'sys_' + Date.now(),
+          sender: 'system',
           text: `Encontrei ${sortedByDistance.length} produto(s) ordenados por proximidade geográfica em relação a você:`,
           products: sortedByDistance.slice(0, 5),
         },
@@ -209,9 +201,9 @@ export const FeedBotScreen: React.FC<FeedBotScreenProps> = ({ user, onOpenChat }
           text: '📊 Ver resumo e estatísticas do feed',
         },
         {
-          id: 'bot_' + Date.now(),
-          sender: 'bot',
-          text: `Resumo do feed sincronizado com o Firestore:\n\n• ${current.length} produtos disponíveis\n• ${urgentCount} itens em resgate urgente\n• ${totalKg.toFixed(1)} kg de alimento resgatado do descarte\n• Menor preço a partir de R$ ${minPrice.toFixed(2)}`,
+          id: 'sys_' + Date.now(),
+          sender: 'system',
+          text: `Resumo do feed sincronizado em tempo real:\n\n• ${current.length} produtos disponíveis\n• ${urgentCount} itens em resgate urgente\n• ${totalKg.toFixed(1)} kg de alimento resgatado do descarte\n• Menor preço a partir de R$ ${minPrice.toFixed(2)}`,
           stats: {
             totalItems: current.length,
             expiringUrgent: urgentCount,
@@ -236,21 +228,18 @@ export const FeedBotScreen: React.FC<FeedBotScreenProps> = ({ user, onOpenChat }
 
   return (
     <div className="pb-24 pt-3 max-w-xl mx-auto px-4 flex flex-col h-[calc(100vh-65px)]">
-      {/* Bot Header */}
+      {/* Header */}
       <div className="bg-white p-3.5 rounded-2xl border border-gray-200 shadow-xs mb-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
-            <Bot className="w-6 h-6" />
+            <Compass className="w-6 h-6" />
           </div>
           <div>
             <h2 className="font-bold text-gray-900 text-sm flex items-center gap-1.5">
-              LogiBot do Feed
-              <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded-full">
-                Sem IA • 100% Nativo
-              </span>
+              Explorar Alimentos
             </h2>
             <p className="text-[11px] text-gray-500">
-              Navegue pelo feed de alimentos usando filtros estáticos
+              Navegue pelo feed de alimentos usando filtros rápidos
             </p>
           </div>
         </div>
@@ -272,7 +261,7 @@ export const FeedBotScreen: React.FC<FeedBotScreenProps> = ({ user, onOpenChat }
             >
               {!isUser && (
                 <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-0.5">
-                  <Bot className="w-4 h-4" />
+                  <Sparkles className="w-4 h-4 text-emerald-100" />
                 </div>
               )}
 
@@ -285,7 +274,7 @@ export const FeedBotScreen: React.FC<FeedBotScreenProps> = ({ user, onOpenChat }
               >
                 <p className="whitespace-pre-line font-medium">{msg.text}</p>
 
-                {/* Render Product Cards if Bot attached items */}
+                {/* Render Product Cards */}
                 {msg.products && msg.products.length > 0 && (
                   <div className="mt-3 pt-2.5 border-t border-gray-100 space-y-2">
                     {msg.products.map((p) => {
@@ -362,10 +351,10 @@ export const FeedBotScreen: React.FC<FeedBotScreenProps> = ({ user, onOpenChat }
         })}
       </div>
 
-      {/* Static Interactive Action Buttons (Zero typing required!) */}
+      {/* Static Interactive Action Buttons */}
       <div className="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm shrink-0">
         <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">
-          Toque em uma opção estática:
+          Toque em uma opção:
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-36 overflow-y-auto pr-1">
           {staticOptions.map((opt) => {

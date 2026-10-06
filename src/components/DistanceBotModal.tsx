@@ -3,17 +3,15 @@ import { Product } from '../types';
 import { DistanceBot, DistanceCalculationResult } from '../services/distanceBot';
 import { useLanguage } from '../context/LanguageContext';
 import { 
-  Bot, 
   MapPin, 
   Navigation, 
   Footprints, 
   Bike, 
   Car,
   Leaf, 
-  Sparkles, 
-  ArrowRight,
-  ShieldCheck,
-  RefreshCw
+  ShieldCheck, 
+  RefreshCw,
+  Compass
 } from 'lucide-react';
 
 interface DistanceBotModalProps {
@@ -61,10 +59,10 @@ export const DistanceBotModal: React.FC<DistanceBotModalProps> = ({
           ✕
         </button>
 
-        {/* Bot Header */}
+        {/* Modal Header */}
         <div className="flex items-center gap-3 mb-4 pb-3 border-b border-gray-100">
           <div className="w-11 h-11 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-200">
-            <Bot className="w-6 h-6" />
+            <Compass className="w-6 h-6" />
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -121,7 +119,7 @@ export const DistanceBotModal: React.FC<DistanceBotModalProps> = ({
           </div>
         </form>
 
-        {/* Bot Calculation Results Card */}
+        {/* Distance Calculation Results Card */}
         <div className="bg-emerald-50/80 rounded-2xl p-4 border border-emerald-200 mb-4 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs text-emerald-900 font-semibold flex items-center gap-1.5">

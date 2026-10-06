@@ -3,7 +3,8 @@ import { User } from '../types';
 import { store } from '../services/store';
 import { AccountDeletionModal } from '../components/AccountDeletionModal';
 import { TermsModal } from '../components/TermsModal';
-import { i18n, AppLanguage } from '../services/i18n';
+import { useLanguage } from '../context/LanguageContext';
+import { AppLanguage } from '../services/i18n';
 import { 
   User as UserIcon, 
   MapPin, 
@@ -17,9 +18,6 @@ import {
   Trash2, 
   Loader2, 
   CheckCircle2, 
-  Layers, 
-  QrCode,
-  Sparkles,
   Languages,
   AlertCircle
 } from 'lucide-react';
@@ -35,25 +33,17 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   onOpenAuth,
   onOpenUpgrade,
 }) => {
+  const { t, language, setLanguage } = useLanguage();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [isSeller, setIsSeller] = useState(false);
-  const [pixKey, setPixKey] = useState('');
-  const [bio, setBio] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
-  const [currentLang, setCurrentLang] = useState<AppLanguage>(i18n.getLanguage());
-
-  useEffect(() => {
-    return i18n.subscribe((lang) => {
-      setCurrentLang(lang);
-    });
-  }, []);
 
   useEffect(() => {
     if (user) {
@@ -61,10 +51,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       setPhone(user.phone || '');
       setAddress(user.address || '');
       setIsSeller(Boolean(user.isSeller));
-      // Load optional fields if present in user
-      const anyUser = user as any;
-      setPixKey(anyUser.pixKey || '');
-      setBio(anyUser.bio || '');
     }
   }, [user]);
 
@@ -75,10 +61,10 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           <UserIcon className="w-8 h-8" />
         </div>
         <h2 className="text-xl font-extrabold text-gray-900 mb-1">
-          Acesse seu Perfil
+          {t('profile_access_title')}
         </h2>
         <p className="text-xs text-gray-500 mb-6 max-w-xs mx-auto">
-          Conecte-se com sua conta Google para gerenciar seus dados, endereço de retirada e anúncios de alimentos.
+          {t('profile_access_subtitle')}
         </p>
 
         <button
@@ -86,7 +72,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-2xl text-sm shadow-md transition cursor-pointer flex items-center justify-center gap-2"
         >
           <UserIcon className="w-4 h-4" />
-          <span>Fazer Login com Google</span>
+          <span>{t('profile_login_google_btn')}</span>
         </button>
       </div>
     );
@@ -113,7 +99,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       setSaveError(null);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: any) {
-      setSaveError('Erro ao salvar perfil: ' + (err.message || 'Tente novamente.'));
+      setSaveError('Error: ' + (err.message || 'Please try again.'));
       setTimeout(() => setSaveError(null), 4000);
     } finally {
       setIsSaving(false);
@@ -126,10 +112,10 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-xl font-extrabold text-gray-900 tracking-tight">
-            Meu Perfil & Dados
+            {t('profile_title')}
           </h2>
           <p className="text-xs text-gray-500">
-            Gerencie suas informações cadastrais e de contato
+            {t('profile_subtitle')}
           </p>
         </div>
         <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
@@ -150,22 +136,22 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             </div>
           </div>
           <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
-            {isSeller ? 'Produtor / Vendedor' : 'Consumidor'}
+            {isSeller ? t('profile_user_role_producer') : t('profile_user_role_consumer')}
           </span>
         </div>
 
         {/* Capacity / Package Status */}
         <div className="pt-2.5 border-t border-gray-100 flex items-center justify-between text-xs">
           <div>
-            <span className="text-gray-500">Capacidade de Estoque:</span>{' '}
-            <strong className="text-emerald-800">{sub.productLimit} itens</strong>
+            <span className="text-gray-500">{t('stock_capacity_label')}</span>{' '}
+            <strong className="text-emerald-800">{sub.productLimit} {t('itemsCount')}</strong>
           </div>
           <button
             type="button"
             onClick={onOpenUpgrade}
             className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 underline cursor-pointer"
           >
-            +1.000 itens (R$ 20)
+            {t('recharge_capacity_btn')}
           </button>
         </div>
       </div>
@@ -173,13 +159,13 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       {/* Form: Add or Alter User Data */}
       <form onSubmit={handleSaveProfile} className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm space-y-4 mb-4">
         <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
-          <span>Editar Informações Cadastrais</span>
+          <span>{t('edit_info_title')}</span>
         </h3>
 
         {saveSuccess && (
           <div className="p-3 bg-emerald-50 border border-emerald-300 text-emerald-800 rounded-xl text-xs flex items-center gap-2 animate-in fade-in">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>Dados atualizados com sucesso no sistema!</span>
+            <span>{t('data_saved_success')}</span>
           </div>
         )}
 
@@ -193,7 +179,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         {/* Name Input */}
         <div>
           <label className="block text-xs font-bold text-gray-700 mb-1">
-            Nome de Exibição / Nome do Estabelecimento *
+            {t('display_name_label')}
           </label>
           <div className="relative">
             <UserIcon className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -202,7 +188,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ex.: Fazenda Sol Verde ou Maria Silva"
+              placeholder={t('display_name_placeholder')}
               className="w-full pl-10 pr-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
             />
           </div>
@@ -211,7 +197,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         {/* Phone / WhatsApp */}
         <div>
           <label className="block text-xs font-bold text-gray-700 mb-1">
-            Telefone / WhatsApp para Retirada
+            {t('phone_label')}
           </label>
           <div className="relative">
             <Phone className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -224,14 +210,14 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             />
           </div>
           <p className="text-[10px] text-gray-400 mt-1">
-            Facilita o contato entre produtor e resgatador no momento da entrega/retirada.
+            {t('phone_hint')}
           </p>
         </div>
 
         {/* Address / Location */}
         <div>
           <label className="block text-xs font-bold text-gray-700 mb-1">
-            Endereço de Retirada / Cidade / Bairro
+            {t('address_label')}
           </label>
           <div className="relative">
             <MapPin className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -244,28 +230,72 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             />
           </div>
           <p className="text-[10px] text-gray-400 mt-1">
-            Usado para calcular a distância em metros/km para os consumidores próximos.
+            {t('address_hint')}
           </p>
         </div>
 
-        {/* Role Toggle: Seller vs Consumer */}
-        <div className="p-3.5 bg-emerald-50/60 border border-emerald-200 rounded-xl">
-          <label className="flex items-center justify-between cursor-pointer">
-            <div>
-              <span className="block text-xs font-bold text-emerald-950">
-                Ativar Perfil de Produtor / Estabelecimento
-              </span>
-              <span className="block text-[11px] text-emerald-800/80">
-                Permite cadastrar e anunciar alimentos excedentes no feed
-              </span>
-            </div>
-            <input
-              type="checkbox"
-              checked={isSeller}
-              onChange={(e) => setIsSeller(e.target.checked)}
-              className="w-5 h-5 accent-emerald-600 rounded cursor-pointer"
-            />
+        {/* Direct Mode Switcher Widget */}
+        <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-2xl space-y-2">
+          <label className="block text-xs font-bold text-emerald-950 mb-1">
+            {t('profile_mode_selection_label')}
           </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={async () => {
+                setIsSeller(false);
+                await store.updateUserProfile({ isSeller: false });
+                setToastMessage(t('profile_consumer_activated_toast'));
+                setTimeout(() => setToastMessage(null), 3000);
+              }}
+              className={`p-3 rounded-xl border text-left transition cursor-pointer flex items-start gap-2.5 ${
+                !isSeller
+                  ? 'bg-white border-emerald-600 shadow-sm ring-2 ring-emerald-500/20'
+                  : 'bg-white/60 border-gray-200 hover:bg-white'
+              }`}
+            >
+              <div className={`p-2 rounded-lg shrink-0 ${!isSeller ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
+                <ShoppingBag className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-xs text-gray-900">{t('profile_mode_consumer_title')}</span>
+                  {!isSeller && <span className="text-[9px] bg-blue-100 text-blue-800 font-bold px-1.5 py-0.2 rounded-full">{t('profile_mode_active_badge')}</span>}
+                </div>
+                <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">
+                  {t('profile_mode_consumer_desc')}
+                </p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={async () => {
+                setIsSeller(true);
+                await store.updateUserProfile({ isSeller: true });
+                setToastMessage(t('profile_producer_activated_toast'));
+                setTimeout(() => setToastMessage(null), 3000);
+              }}
+              className={`p-3 rounded-xl border text-left transition cursor-pointer flex items-start gap-2.5 ${
+                isSeller
+                  ? 'bg-white border-emerald-600 shadow-sm ring-2 ring-emerald-500/20'
+                  : 'bg-white/60 border-gray-200 hover:bg-white'
+              }`}
+            >
+              <div className={`p-2 rounded-lg shrink-0 ${isSeller ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                <Store className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-xs text-gray-900">{t('profile_mode_producer_title')}</span>
+                  {isSeller && <span className="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded-full">{t('profile_mode_active_badge')}</span>}
+                </div>
+                <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">
+                  {t('profile_mode_producer_desc')}
+                </p>
+              </div>
+            </button>
+          </div>
         </div>
 
         {/* Language Selection - Auto detected from Google */}
@@ -273,7 +303,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           <div className="flex items-center justify-between">
             <label className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
               <Languages className="w-4 h-4 text-emerald-600" />
-              <span>{i18n.t('languageSetting')}</span>
+              <span>{t('languageSetting')}</span>
             </label>
             <span className="text-[10px] text-gray-400">
               Google Locale
@@ -289,9 +319,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               <button
                 key={langItem.code}
                 type="button"
-                onClick={() => i18n.setLanguage(langItem.code as AppLanguage)}
+                onClick={() => setLanguage(langItem.code as AppLanguage)}
                 className={`py-2 px-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer ${
-                  currentLang === langItem.code
+                  language === langItem.code
                     ? 'border-emerald-600 bg-white text-emerald-800 shadow-xs ring-2 ring-emerald-500/20'
                     : 'border-gray-200 hover:border-gray-300 text-gray-600 bg-white'
                 }`}
@@ -302,7 +332,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             ))}
           </div>
           <p className="text-[10px] text-gray-400 mt-1 leading-relaxed">
-            {i18n.t('autoDetectedFromGoogle')}
+            {t('autoDetectedFromGoogle')}
           </p>
         </div>
 
@@ -315,12 +345,12 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           {isSaving ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Salvando no banco de dados...</span>
+              <span>{t('saving_btn')}</span>
             </>
           ) : (
             <>
               <Save className="w-4 h-4" />
-              <span>Salvar Alterações</span>
+              <span>{t('save_changes_btn')}</span>
             </>
           )}
         </button>
@@ -329,7 +359,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       {/* Account Management & Privacy Options */}
       <div className="bg-white rounded-2xl p-4 border border-gray-200 shadow-xs space-y-2 mb-4">
         <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-          Privacidade & Termos
+          {t('privacy_terms_header')}
         </h4>
 
         <button
@@ -339,9 +369,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         >
           <span className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-emerald-600" />
-            <span>Termos de Uso e Política de Privacidade (LGPD)</span>
+            <span>{t('terms_modal_button_label')}</span>
           </span>
-          <span className="text-[10px] text-gray-400">Consultar</span>
+          <span className="text-[10px] text-gray-400">{t('terms_consult_btn')}</span>
         </button>
 
         <button
@@ -351,10 +381,10 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         >
           <span className="flex items-center gap-2">
             <Trash2 className="w-4 h-4 text-red-600" />
-            <span>Excluir Conta ou Dados (LGPD)</span>
+            <span>{t('delete_account_button_label')}</span>
           </span>
           <span className="text-[10px] bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">
-            Gerenciar
+            {t('manage_btn')}
           </span>
         </button>
 
@@ -364,7 +394,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           className="w-full p-2.5 rounded-xl hover:bg-gray-100 text-gray-700 text-xs font-semibold flex items-center gap-2 transition cursor-pointer"
         >
           <LogOut className="w-4 h-4 text-gray-500" />
-          <span>Sair da Conta</span>
+          <span>{t('sign_out_button_label')}</span>
         </button>
       </div>
 

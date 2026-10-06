@@ -3,6 +3,7 @@ import { User } from '../types';
 import { store } from '../services/store';
 import { AccountDeletionModal } from './AccountDeletionModal';
 import { useLanguage } from '../context/LanguageContext';
+import { PWAInstallButton } from '../pwa/PWAInstallButton';
 import { 
   Sparkles, 
   LogOut, 
@@ -28,8 +29,11 @@ export const Header: React.FC<HeaderProps> = ({ user, onRefreshAi, onOpenAuth })
 
   const toggleSellerMode = async () => {
     if (!user) return;
-    await store.updateUserProfile({ isSeller: !user.isSeller });
+    const nextRole = !user.isSeller;
+    await store.updateUserProfile({ isSeller: nextRole });
     setShowUserMenu(false);
+    setDeletionToast(nextRole ? 'Modo Produtor ativado!' : 'Modo Consumidor ativado!');
+    setTimeout(() => setDeletionToast(null), 2500);
   };
 
   return (
@@ -54,6 +58,8 @@ export const Header: React.FC<HeaderProps> = ({ user, onRefreshAi, onOpenAuth })
           </div>
 
           <div className="flex items-center gap-1.5">
+            <PWAInstallButton />
+
             <button
               onClick={onRefreshAi}
               title={t('quick_tip_btn')}

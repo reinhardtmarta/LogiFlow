@@ -23,13 +23,15 @@ service cloud.firestore {
       allow read: if isOwner(userId);
 
       allow create: if isOwner(userId) && (
-        request.resource.data.uid == request.auth.uid &&
+        (request.resource.data.uid == null || request.resource.data.uid == request.auth.uid) &&
         (request.resource.data.product_limit == null || request.resource.data.product_limit <= 50)
       );
 
       allow update: if isOwner(userId) && (
-        request.resource.data.uid == request.auth.uid &&
+        (request.resource.data.uid == null || request.resource.data.uid == request.auth.uid) &&
         (
+          request.resource.data.product_limit == null ||
+          resource.data.product_limit == null ||
           request.resource.data.product_limit == resource.data.product_limit ||
           request.resource.data.product_limit <= 50 ||
           (request.resource.data.product_limit > resource.data.product_limit && request.resource.data.subscription_status == 'active')

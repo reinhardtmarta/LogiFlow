@@ -1,15 +1,13 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { 
-  getAuth, 
-  GoogleAuthProvider, 
-  signInWithPopup, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut as fbSignOut,
-  onAuthStateChanged
-} from 'firebase/auth';
+/**
+ * Firebase Service Initialization
+ * Configured using environment variables (.env / VITE_FIREBASE_*)
+ * Powered by official 'firebase/app' and 'firebase/firestore' SDKs
+ */
+
+import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { 
   getFirestore, 
+  Firestore,
   collection, 
   doc, 
   setDoc, 
@@ -23,18 +21,49 @@ import {
   where,
   getDocFromServer
 } from 'firebase/firestore';
-import firebaseConfig from '../firebase-applet-config.json';
+import { 
+  getAuth, 
+  Auth,
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  signOut as fbSignOut,
+  onAuthStateChanged
+} from 'firebase/auth';
+import firebaseConfigFallback from '../firebase-applet-config.json';
 import { Product, User, ChatMessage } from '../types';
 
-// Initialize Firebase App
-const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+// Load Firebase configuration securely from environment variables with fallback
+export const getFirebaseConfig = () => {
+  const apiKey = import.meta.env.VITE_FIREBASE_API_KEY || firebaseConfigFallback?.apiKey || '';
+  const authDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || firebaseConfigFallback?.authDomain || '';
+  const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || firebaseConfigFallback?.projectId || '';
+  const storageBucket = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || firebaseConfigFallback?.storageBucket || '';
+  const messagingSenderId = import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseConfigFallback?.messagingSenderId || '';
+  const appId = import.meta.env.VITE_FIREBASE_APP_ID || firebaseConfigFallback?.appId || '';
+  const firestoreDatabaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID || firebaseConfigFallback?.firestoreDatabaseId || '(default)';
 
-// Initialize Auth & Firestore with firestoreDatabaseId
-export const auth = getAuth(app);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+  return {
+    apiKey: apiKey || 'AIzaSyLogiFlowFallbackAppKeyPlaceholder',
+    authDomain: authDomain || (projectId ? `${projectId}.firebaseapp.com` : 'logiflow-app.firebaseapp.com'),
+    projectId: projectId || 'logiflow-app',
+    storageBucket: storageBucket || (projectId ? `${projectId}.appspot.com` : 'logiflow-app.appspot.com'),
+    messagingSenderId: messagingSenderId || '108723563140',
+    appId: appId || '1:108723563140:web:logiflowapp',
+    firestoreDatabaseId,
+  };
+};
+
+export const firebaseConfig = getFirebaseConfig();
+
+// Initialize Firebase App instance
+export const app: FirebaseApp = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+
+// Initialize Cloud Firestore and Authentication services
+export const db: Firestore = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+export const auth: Auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
-// Error handler conforming to Firebase Integration Skill
+// Error handler conforming to Firebase Integration standards
 export enum OperationType {
   CREATE = 'create',
   UPDATE = 'update',
@@ -70,7 +99,7 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   return errInfo;
 }
 
-// Connection test from skill
+// Connectivity check with server
 export async function testFirestoreConnection() {
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
@@ -82,7 +111,7 @@ export async function testFirestoreConnection() {
 }
 testFirestoreConnection();
 
-// Initial Seed Products
+// Initial Seed Products for Marketplace
 const SEED_PRODUCTS = [
   {
     seller_id: 'user_seller_1',
@@ -202,10 +231,10 @@ export async function seedInitialProductsIfEmpty() {
   }
 }
 
-// Seed on startup
+// Run initial seed check
 seedInitialProductsIfEmpty();
 
-// Helper to format Firestore Product doc to TypeScript Product
+// Helper to format Firestore Product doc to TypeScript Product model
 export function docToProduct(id: string, data: any): Product {
   return {
     id,
@@ -224,6 +253,7 @@ export function docToProduct(id: string, data: any): Product {
     category: data.category || 'Other',
     isRescue: Boolean(data.is_rescue ?? data.isRescue),
     isFeatured: Boolean(data.is_featured ?? data.isFeatured),
+    isReserved: Boolean(data.is_reserved ?? data.isReserved),
     hidden: Boolean(data.hidden),
     wastePreventedKg: Number(data.waste_prevented_kg || data.wastePreventedKg || 0),
     createdAt: data.created_at || data.createdAt || new Date().toISOString(),
