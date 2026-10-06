@@ -1,12 +1,9 @@
 {
-  "projectId": "novo2-12d99",
-  "appId": "1:17040107897:web:14df1e75cfa412ed8167a8",
-  "apiKey": "AIzaSyBIwI22DjV3EuRs8foGn38R9W9o-sRR0C4",
-  "authDomain": "novo2-12d99.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-logiflow-526642b5-0038-4bff-a536-d16f275a2d39",
-  "storageBucket": "novo2-12d99.firebasestorage.app",
-  "messagingSenderId": "17040107897",
-  "measurementId": "",
-  "oAuthClientId": "17040107897-e60t54i4u76mn5v55rl7oubn6iiec19h.apps.googleusercontent.com",
-  "recaptchaSiteKey": ""
+  "apiKey": "",
+  "authDomain": "",
+  "projectId": "",
+  "storageBucket": "",
+  "messagingSenderId": "",
+  "appId": "",
+  "firestoreDatabaseId": "(default)"
 }
