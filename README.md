@@ -30,6 +30,7 @@ Rewritten from Flutter as a high-performance, responsive React application.
   - Dedicated conversational assistant for stock inquiry, food conservation advice, and zero-waste recipes.
 - **Direct Messaging**:
   - In-app chat between buyers and food producers.
+    APPWEB:https://applogiflow.ai.studio/
 
 ---
 🌿 APP LogiFlow: Resgate de Alimentos e Marketplace de Estoque Baseado em IA
@@ -77,3 +78,5 @@ Assistente conversacional dedicado para consulta de estoque, dicas técnicas de 
 Mensagens Diretas:
 
 Chat interno no aplicativo entre compradores e produtores de alimentos.
+APPWEB:https://applogiflow.ai.studio/
+
