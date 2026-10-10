@@ -5,6 +5,7 @@
 LogiFlow is an AI-driven food rescue marketplace connecting producers, sellers, and consumers to eliminate food waste and redistribute surplus produce, bakery items, dairy, and groceries at accessible prices.
 
 Rewritten from Flutter as a high-performance, responsive React application.
+Builded in GEMMA 4 GOOD KAGGLE HACKATHON 
 
 ---
 
