@@ -1,0 +1,76 @@
+# 🌿 LogiFlow App: AI-Driven Food Rescue & Inventory Marketplace
+
+![LogiFlow Logo](/assets/images/logiflowlogo.png)
+
+> **LogiFlow** is an AI-driven food rescue platform. We connect producers, merchants, and end consumers to fight food waste by redistributing agricultural surplus, bakery items, dairy, and grocery products at accessible prices.
+
+---
+
+## 🚀 About the Project
+
+Originally conceptualized in Flutter, the application was completely rewritten as a responsive **React Web app in TypeScript**, optimized for high performance and smooth user experience.
+
+- **Event:** Developed during the **Gemma 4 Good Kaggle Hackathon**.
+- **Web Application:** [https://applogiflow.ai.studio/](https://applogiflow.ai.studio/)
+
+---
+
+## 🌟 Key Features
+
+### 📲 Public Feed & Gemma 4 AI Insights
+- **Real-Time Inventory Feed:** Dynamic status badges:
+  - `MAIS`: Featured products from subscribers.
+  - `RESGATE URGENTE`: Items expiring in $\le 3$ days.
+  - `SAUDÁVEL`: Fresh and unprocessed items.
+- **AI Insights:** Contextual banner powered by **Gemma 4**, analyzing items near expiration in real time and suggesting rescue strategies.
+
+### 🛒 Consumer Marketplace & Food Search
+- Full-text search and category filtering (*Bakery, Produce, Dairy, Beverages, and Pantry*).
+- **Direct Messaging:** Real-time chat between buyers and sellers/producers to coordinate local pickup.
+
+### 📊 Seller Dashboard & Inventory Management
+- **Real-Time Dashboard:** Overview tracking total active items, items near expiration ($\le 5$ days), and expired products.
+- **Advanced Stock Management:** Quick filtering by item state (*All, New, Cleaned, Packaged, Near Expiration*) with rapid quantity adjustment.
+- **Multi-Tier Seller Plans:**
+  - **Free:** Up to 50 items.
+  - **Mais:** R$ 10.00 per batch of 1,000 items.
+  - *Soft-lock enforcement (prevents new listings upon reaching limits without disrupting active operations).*
+- **Full Listing Management:** Support for multiple photos, expiration dates, emergency food rescue flags, and producer tags.
+
+### 🤖 Gemma 4 Conversational Assistant
+- Dedicated chatbot for:
+  - Rapid inventory lookups.
+  - Technical food preservation advice.
+  - Zero-waste recipe recommendations.
+
+---
+
+## 🛠️ Tech Stack
+
+- **Frontend:** React (Web, Responsive)
+- **Language:** TypeScript
+- **AI / LLM:** Google Gemma 4
+- **Payments:** Stripe (Simulated)
+- **Styling / UI:** CSS3 / HTML5
+
+---
+
+## 🗺️ Roadmap & Next Steps
+
+- [x] Architecture migration from Flutter to React + TypeScript.
+- [x] Integration of the Gemma 4 model for insight generation and zero-waste assistant.
+- [x] Web version launch (PWA / Web App).
+- [ ] **Mobile Packaging (Android / TWA):** Adapting the Web app for distribution on the **Google Play Store**.
+- [ ] Production-ready payment gateway integration.
+- [ ] Geolocation service for proximity-based inventory search.
+
+---
+
+## 🌐 Live Application
+
+Access the live Web version here:  
+👉 **[applogiflow.ai.studio](https://applogiflow.ai.studio/)**
+
+---
+
+*Built with a commitment to reducing food waste through technology.*
