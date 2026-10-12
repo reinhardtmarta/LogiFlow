@@ -20,12 +20,12 @@ Originally conceptualized in Flutter, the application was completely rewritten a
 
 ## 🌟 Key Features
 
-### 📲 Public Feed & Gemma 4 AI Insights
+### 📲 Public Feed & AI Insights
 - **Real-Time Inventory Feed:** Dynamic status badges:
   - `MAIS`: Featured products from subscribers.
   - `RESGATE URGENTE`: Items expiring in $\le 3$ days.
   - `SAUDÁVEL`: Fresh and unprocessed items.
-- **AI Insights:** Contextual banner powered by **Gemma 4**, analyzing items near expiration in real time and suggesting rescue strategies.
+- **AI Insights:** Contextual banner powered by **Gemini**, analyzing items near expiration in real time and suggesting rescue strategies.
 
 ### 🛒 Consumer Marketplace & Food Search
 - Full-text search and category filtering (*Bakery, Produce, Dairy, Beverages, and Pantry*).
