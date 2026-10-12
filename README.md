@@ -21,12 +21,12 @@ O aplicativo foi originalmente idealizado em Flutter e totalmente reescrito como
 
 ## 🌟 Principais Recursos
 
-### 📲 Feed Público & Análise com IA Gemma 4
+### 📲 Feed Público & Análise com IA
 - **Feed de Estoque em Tempo Real:** Selos dinâmicos de status:
   - `MAIS`: Produtos em destaque de assinantes.
   - `RESGATE URGENTE`: Produtos a $\le 3$ dias do vencimento.
   - `SAUDÁVEL`: Produtos frescos e in natura.
-- **Insights por IA:** Banner contextual alimentado pelo **Gemma 4**, que analisa produtos próximos ao vencimento em tempo real e sugere ações de resgate.
+- **Insights por IA:** Banner contextual alimentado pelo **Gemini**, que analisa produtos próximos ao vencimento em tempo real e sugere ações de resgate.
 
 ### 🛒 Marketplace & Busca de Alimentos
 - Busca por texto integral e filtros por categorias (*Panificação, Frutas e Verduras, Laticínios, Bebidas e Despensa*).
