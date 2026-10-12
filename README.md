@@ -2,83 +2,80 @@
 
 ![LogiFlow Logo](/assets/images/logiflowlogo.png)
 
-LogiFlow is an AI-driven food rescue marketplace connecting producers, sellers, and consumers to eliminate food waste and redistribute surplus produce, bakery items, dairy, and groceries at accessible prices.
-
-Rewritten from Flutter as a high-performance, responsive React application.
-
-DEVOLOPED in GEMMA 4 GOOD KAGGLE HACKATHON 
+> **O LogiFlow** é uma plataforma baseada em Inteligência Artificial voltada ao resgate de alimentos. Conectamos produtores, comerciantes e consumidores finais para combater o desperdício, redistribuindo excedentes agrícolas, produtos de padaria, laticínios e itens de mercearia a preços acessíveis.
 
 ---
 
-## 🌟 Key Features
+## 🚀 Sobre o Projeto
 
-- **Public Food Feed & Gemma AI Insights**:
-  - Live inventory feed with dynamic status badges: `PREMIUM` (featured), `RESGATE URGENTE` (≤ 3 days to expiry), `SAUDÁVEL` (healthy/fresh).
-  - Contextual AI insight banner powered by Gemma 4 analyzing expiring items in real time.
-- **Consumer Marketplace & Food Search**:
-  - Full-text search and category filtering for bakery, fruits, dairy, beverages, and pantry items.
-  - Direct chat integration between consumers and sellers to coordinate pickups.
-- **Seller Dashboard & Inventory Management**:
-  - Live inventory overview tracking total active items, items expiring soon (≤ 5 days), and expired products.
-  - Multi-tier seller plans (Free: 50 items, Basic: 1,000 items, Pro: unlimited) with soft-lock management.
-  - Full item publishing with category, condition, multi-photo limits, expiry date, producer tags, and food rescue flagging.
-- **Stock Management Screen**:
-  - Quick status filtering (`All`, `New`, `Cleaned`, `Packaged`, `Expiring`).
-  - Real-time stock quantity adjustments with increment/decrement controls.
-- **Stripe Subscription & Upgrade Flow**:
-  - Seamless simulated Stripe checkout flow for Basic (R$ 10,00/month) and Pro (R$ 100,00/month) plans.
-  - Featured product pinning in the public feed for active subscribers.
-- **Gemma 4 AI Assistant**:
-  - Dedicated conversational assistant for stock inquiry, food conservation advice, and zero-waste recipes.
-- **Direct Messaging**:
-  - In-app chat between buyers and food producers.
-    APPWEB:https://applogiflow.ai.studio/
+O aplicativo foi originalmente idealizado em Flutter e totalmente reescrito como uma aplicação **Web React responsiva em TypeScript**, focada em alto desempenho e experiência do usuário. 
+
+- **Evento:** Desenvolvido durante o **Gemma 4 Good Kaggle Hackathon**.
+- **Aplicação Web:** [https://applogiflow.ai.studio/](https://applogiflow.ai.studio/)
 
 ---
-🌿 APP LogiFlow: Resgate de Alimentos e Marketplace de Estoque Baseado em IA
-O LogiFlow é um marketplace (plataforma de comércio eletrônico) voltado ao resgate de alimentos impulsionado por inteligência artificial, conectando produtores, comerciantes e consumidores finais para combater o desperdício e redistribuir excedentes agrícolas, produtos de padaria, laticínios e itens de mercearia a preços acessíveis.
 
-Reescrito a partir do Flutter como uma aplicação React responsiva (que se adapta a diferentes tamanhos de tela) e de alto desempenho.
+## 🌟 Principais Recursos
 
-🌟 Principais Recursos
-Feed Público de Alimentos e Análise com IA Gemma:
+### 📲 Feed Público & Análise com IA Gemma 4
+- **Feed de Estoque em Tempo Real:** Selos dinâmicos de status:
+  - `MAIS`: Produtos em destaque de assinantes.
+  - `RESGATE URGENTE`: Produtos a $\le 3$ dias do vencimento.
+  - `SAUDÁVEL`: Produtos frescos e in natura.
+- **Insights por IA:** Banner contextual alimentado pelo **Gemma 4**, que analisa produtos próximos ao vencimento em tempo real e sugere ações de resgate.
 
-Feed (fluxo contínuo de itens) de estoque em tempo real com selos dinâmicos de status: PREMIUM (destaque), RESGATE URGENTE (≤ 3 dias para o vencimento) e SAUDÁVEL (fresco/in natura).
+### 🛒 Marketplace & Busca de Alimentos
+- Busca por texto integral e filtros por categorias (*Panificação, Frutas e Verduras, Laticínios, Bebidas e Despensa*).
+- **Chat Direto:** Comunicação em tempo real entre compradores e vendedores/produtores para combinar a retirada local.
 
-Banner contextual com análises geradas pelo modelo Gemma 4, avaliando produtos próximos ao vencimento em tempo real.
+### 📊 Painel do Vendedor & Gestão de Estoque
+- **Dashboard em Tempo Real:** Monitoramento do total de itens ativos, próximos do vencimento ($\le 5$ dias) e itens vencidos.
+- **Controle de Estoque Avançado:** Filtros por estado do produto (*Todos, Novos, Higienizados, Embalados, Perto do Vencimento*) com ajuste rápido de quantidade.
+- **Planos de Vendedor (Múltiplos Níveis):**
+  - **Gratuito:** Até 50 itens.
+  - **Mais:** R$10,00 por a cada 1.000 itens.
+  
+  - *Gerenciamento por soft-lock (impede novos cadastros ao atingir o limite sem interromper operações ativas).*
+- **Publicação Completa:** Suporte a múltiplas fotos, prazos de validade, marcação de resgate emergencial e etiquetas de produtor.
 
-Marketplace do Consumidor e Busca de Alimentos:
+### 💳 Assinaturas & Pagamentos
+- Fluxo de checkout simulado via **Stripe** para os planos Básico e Pro.
+- Fixação e destaque de produtos no feed público para assinantes ativos.
 
-Busca por texto integral e filtros por categoria (panificação, frutas e verduras, laticínios, bebidas e despensa).
+### 🤖 Assistente Conversacional Gemma 4
+- Chatbot dedicado para:
+  - Consultas rápidas de estoque.
+  - Dicas técnicas de conservação de alimentos.
+  - Sugestão de receitas focadas em **desperdício zero**.
 
-Integração de chat direto entre consumidores e vendedores para combinar a retirada dos itens.
+---
 
-Painel do Vendedor e Gestão de Estoque:
+## 🛠️ Tecnologias Utilizadas
 
-Visão geral do estoque em tempo real monitorando o total de itens ativos, produtos próximos do vencimento (≤ 5 dias) e itens já vencidos.
+- **Frontend:** React (Web, Responsivo)
+- **Linguagem:** TypeScript
+- **IA / LLM:** Google Gemma 4
+- **Pagamentos:** Stripe (Simulado)
+- **Estilização / UI:** CSS3 / HTML5
 
-Planos de vendedor em múltiplos níveis (Gratuito: 50 itens, Básico: 1.000 itens, Pro: ilimitado) com controle de limite por bloqueio suave (impede novos cadastros sem travar operações ativas).
+---
 
-Formulário completo de publicação com categoria, condição do item, limite de múltiplas fotos, prazo de validade, etiquetas de produtor e marcação para resgate emergencial de alimentos.
+## 🗺️ Roadmap & Próximos Passos
 
-Tela de Controle de Estoque:
+- [x] Migração de arquitetura de Flutter para React + TypeScript.
+- [x] Integração do modelo Gemma 4 para geração de insights e assistente zero-waste.
+- [x] Lançamento da versão Web (PWA / Web App).
+- [ ] **Empacotamento Mobile (Android / TWA):** Adaptação da aplicação Web para publicação na **Google Play Store**.
+- [ ] Integração com gateways de pagamento em produção.
+- [ ] Sistema de geolocalização para busca por proximidade geográfica.
 
-Filtragem rápida por estado (Todos, Novos, Higienizados, Embalados, Perto do Vencimento).
+---
 
-Ajuste de quantidade em tempo real com botões de incremento e decremento.
+## 🌐 Acesse a Aplicação
 
-Fluxo de Assinatura e Pagamentos via Stripe:
+Acesse a versão Web ao vivo:  
+👉 **[applogiflow.ai.studio](https://applogiflow.ai.studio/)**
 
-Fluxo simulado de checkout (finalização de compra) do Stripe para os planos Básico (R$ 10,00/mês) e Pro (R$ 100,00/mês).
+---
 
-Destaque e fixação de produtos no feed público para assinantes ativos.
-
-Assistente de IA Gemma 4:
-
-Assistente conversacional dedicado para consulta de estoque, dicas técnicas de conservação de alimentos e receitas voltadas ao desperdício zero.
-
-Mensagens Diretas:
-
-Chat interno no aplicativo entre compradores e produtores de alimentos.
-APPWEB:https://applogiflow.ai.studio/
-
+*Desenvolvido com o compromisso de reduzir o desperdício de alimentos através da tecnologia.*
