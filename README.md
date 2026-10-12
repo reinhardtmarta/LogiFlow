@@ -5,6 +5,10 @@
 > **O LogiFlow** é uma plataforma baseada em Inteligência Artificial voltada ao resgate de alimentos. Conectamos produtores, comerciantes e consumidores finais para combater o desperdício, redistribuindo excedentes agrícolas, produtos de padaria, laticínios e itens de mercearia a preços acessíveis.
 
 ---
+[🌐 Read in English](README.en.md) | **Português**
+
+---
+
 
 ## 🚀 Sobre o Projeto
 
