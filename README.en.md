@@ -40,11 +40,7 @@ Originally conceptualized in Flutter, the application was completely rewritten a
   - *Soft-lock enforcement (prevents new listings upon reaching limits without disrupting active operations).*
 - **Full Listing Management:** Support for multiple photos, expiration dates, emergency food rescue flags, and producer tags.
 
-### 🤖 Gemma 4 Conversational Assistant
-- Dedicated chatbot for:
-  - Rapid inventory lookups.
-  - Technical food preservation advice.
-  - Zero-waste recipe recommendations.
+.
 
 ---
 
