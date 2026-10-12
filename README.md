@@ -38,9 +38,7 @@ O aplicativo foi originalmente idealizado em Flutter e totalmente reescrito como
   - *Gerenciamento por soft-lock (impede novos cadastros ao atingir o limite sem interromper operações ativas).*
 - **Publicação Completa:** Suporte a múltiplas fotos, prazos de validade, marcação de resgate emergencial e etiquetas de produtor.
 
-### 💳 Assinaturas & Pagamentos
-- Fluxo de checkout simulado via **Stripe** para os planos Básico e Pro.
-- Fixação e destaque de produtos no feed público para assinantes ativos.
+ para assinantes ativos.
 
 ### 🤖 Assistente Conversacional Gemma 4
 - Chatbot dedicado para:
