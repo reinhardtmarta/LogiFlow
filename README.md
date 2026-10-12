@@ -44,11 +44,6 @@ O aplicativo foi originalmente idealizado em Flutter e totalmente reescrito como
 
  para assinantes ativos.
 
-### 🤖 Assistente Conversacional Gemma 4
-- Chatbot dedicado para:
-  - Consultas rápidas de estoque.
-  - Dicas técnicas de conservação de alimentos.
-  - Sugestão de receitas focadas em **desperdício zero**.
 
 ---
 
@@ -56,8 +51,7 @@ O aplicativo foi originalmente idealizado em Flutter e totalmente reescrito como
 
 - **Frontend:** React (Web, Responsivo)
 - **Linguagem:** TypeScript
-- **IA / LLM:** Google Gemma 4
-- **Pagamentos:** Stripe (Simulado)
+- **IA / LLM:** Gemini 3.8
 - **Estilização / UI:** CSS3 / HTML5
 
 ---
