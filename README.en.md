@@ -48,8 +48,7 @@ Originally conceptualized in Flutter, the application was completely rewritten a
 
 - **Frontend:** React (Web, Responsive)
 - **Language:** TypeScript
-- **AI / LLM:** Google Gemma 4
-- **Payments:** Stripe (Simulated)
+- **AI / LLM:** Gemini 3.8
 - **Styling / UI:** CSS3 / HTML5
 
 ---
